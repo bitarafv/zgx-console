@@ -5,7 +5,8 @@
   "workspaces": ["apps/web", "apps/simulation", "apps/node-bridge", "packages/contracts"],
   "scripts": {
     "setup": "./zgx setup",
-    "dev": "./zgx dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:nano": "./zgx dev",
     "start": "./zgx start",
     "stop": "./zgx stop",
     "restart": "./zgx restart",

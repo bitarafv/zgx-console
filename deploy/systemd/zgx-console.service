@@ -4,9 +4,9 @@ After=network-online.target
 Wants=network-online.target
 [Service]
 Type=simple
-WorkingDirectory=%h/projects/siva-apps/dietplan/zgx-console
+WorkingDirectory=%h/projects/zgx-console
 Environment=PATH=%h/miniforge3/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=%h/projects/siva-apps/dietplan/zgx-console/scripts/public-supervisor
+ExecStart=%h/projects/zgx-console/scripts/public-supervisor
 Restart=on-failure
 KillMode=control-group
 KillSignal=SIGINT
