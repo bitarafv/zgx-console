@@ -1,0 +1,13 @@
+[Unit]
+Description=On-demand ZGX Console Nano bridge
+After=network-online.target siva-edge-console.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=%h/zgx-console
+ExecStart=%h/zgx-console/zgx start
+ExecStop=%h/zgx-console/zgx stop
+TimeoutStartSec=180
+[Install]
+WantedBy=default.target

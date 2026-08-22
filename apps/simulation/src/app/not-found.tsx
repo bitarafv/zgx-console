@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound() { return <div className="shell py-28 text-center"><p className="eyebrow">404 · Signal not found</p><h1 className="mt-4 text-5xl font-black">This experience isn’t configured.</h1><p className="muted mx-auto mt-5 max-w-xl leading-7">The requested industry or demonstration may have moved. Return to the solution landscape to continue exploring.</p><Link href="/markets" className="mt-8 inline-block rounded-xl bg-blue-600 px-6 py-3 font-bold text-white">Explore solutions</Link></div> }
