@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Calculator, Cpu, GraduationCap, LayoutDashboard } from "lucide-react";
-import { SimulationDashboard } from "./SimulationDashboard";
+import { SimulationFrame } from "./SimulationFrame";
 import { NodeDashboard } from "./NodeDashboard";
 import { EnterpriseInsights } from "./EnterpriseInsights";
 import { TcoCalculator } from "./TcoCalculator";
@@ -21,7 +21,7 @@ export function ConsoleShell() {
   return <main className="shell">
     <header className="topbar"><a className="brand" href="#simulation" onClick={() => select("simulation")}><span className="brand-mark">Z</span><span><strong>ZGX Console</strong><small>Personal AI infrastructure</small></span></a><span className="nano-pill"><i /> ZGX Nano online</span></header>
     <nav className="tabs" aria-label="ZGX Console sections">{tabs.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => select(item.id)} aria-current={tab === item.id ? "page" : undefined}><b>{item.number}</b><item.icon size={17} /><span>{item.label}</span></button>)}</nav>
-    <section className="page" key={tab}>{tab === "simulation" && <SimulationDashboard />}{tab === "node" && <NodeDashboard />}{tab === "insights" && <EnterpriseInsights />}{tab === "tco" && <TcoCalculator />}</section>
+    <section className="page" key={tab}>{tab === "simulation" && <SimulationFrame />}{tab === "node" && <NodeDashboard />}{tab === "insights" && <EnterpriseInsights />}{tab === "tco" && <TcoCalculator />}</section>
   </main>;
 }
 
