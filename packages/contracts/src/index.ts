@@ -1,7 +1,7 @@
 export type NodeState = "static" | "live-guest" | "live-admin" | "stale";
 
 export type Workload = {
-  id: string; name: string; active: boolean; description: string; browser_url: string;
+  id: string; name: string; active: boolean; description: string; browser_url: string | null;
   external_browser_url?: string | null; model_names: string[]; intelligence_services: string[];
   expected_cold_load_seconds: number;
 };
