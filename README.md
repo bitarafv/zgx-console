@@ -18,7 +18,8 @@ ZGX Console is the main four-tab application: Simulation Dashboard, ZGX Node, En
 ./zgx start       # activate local console + live Nano bridge
 ./zgx status
 ./zgx logs
-./zgx stop        # leaves Siva and workloads untouched
+./zgx stop        # hides live Node; public console stays online
+./zgx shutdown    # intentionally stop the public console too
 ```
 
 Open `http://localhost:60370`. For remote local administration, forward it over SSH:
