@@ -1,0 +1,23 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { calculateTco, cloudGpus, hardware } from "@/lib/tco";
+
+const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+
+export function TcoCalculator() {
+  const [hwKey, setHwKey] = useState<keyof typeof hardware>("nano");
+  const [gpuKey, setGpuKey] = useState<keyof typeof cloudGpus>("a100_40");
+  const [price, setPrice] = useState<number>(hardware.nano.price);
+  const [count, setCount] = useState(2);
+  const [hours, setHours] = useState(2080);
+  const [license, setLicense] = useState(false);
+  const hw = hardware[hwKey], gpu = cloudGpus[gpuKey];
+  const result = useMemo(() => calculateTco({ hardwarePrice: price, watts: hw.watts, licensePerYear: hw.license, includeLicense: license, cloudHourly: gpu.hourly, gpuCount: count, annualHours: hours, years: 3, electricityRate: 0.15 }), [price, hw, gpu, count, hours, license]);
+  function chooseHardware(key: keyof typeof hardware) { setHwKey(key); setPrice(hardware[key].price); }
+  return <><div className="hero compact"><div><p className="eyebrow">TOTAL COST OF OWNERSHIP</p><h1>Compare dedicated ZGX with <span>cloud GPU rental</span></h1><p>Explore cost scenarios with transparent, editable assumptions. This is an analytical estimate, not a quote.</p></div></div><div className="tco-layout"><aside className="config-card"><h2>Configure scenario</h2><label>Hardware</label><div className="segmented">{Object.entries(hardware).map(([key, value]) => <button className={hwKey === key ? "active" : ""} key={key} onClick={() => chooseHardware(key as keyof typeof hardware)}><strong>{value.name}</strong><small>{money(value.price)}</small></button>)}</div><Field label="Hardware price" value={price} set={setPrice} min={1000} max={250000} step={500} prefix="$" /><label>Cloud GPU tier<select value={gpuKey} onChange={(e) => setGpuKey(e.target.value as keyof typeof cloudGpus)}>{Object.entries(cloudGpus).map(([key, value]) => <option key={key} value={key}>{value.name} · ${value.hourly.toFixed(2)}/hr</option>)}</select></label><Field label="Cloud GPUs to replace" value={count} set={setCount} min={1} max={10} step={1} /><Field label="Annual usage hours" value={hours} set={setHours} min={1000} max={8760} step={40} /><div className="presets"><button onClick={() => setHours(2080)}>Business · 2,080</button><button onClick={() => setHours(8760)}>24/7 · 8,760</button></div><label className="check"><input type="checkbox" checked={license} onChange={(e) => setLicense(e.target.checked)} /> Include enterprise AI software</label><p className="fine">Electricity: $0.15/kWh · Period: 3 years · Rates are configurable assumptions dated April 2026.</p></aside><section className="results"><div className="result-hero"><p>Estimated 3-year savings</p><strong className={result.savings < 0 ? "negative" : ""}>{result.savings < 0 ? "−" : ""}{money(Math.abs(result.savings))}</strong><span>{result.breakEvenMonths ? `Estimated break-even in month ${result.breakEvenMonths}` : "No break-even in this scenario"}</span></div><div className="result-grid"><Result label="Cloud · year one" value={money(result.cloudAnnual)} /><Result label="ZGX · year one" value={money(price + result.powerAnnual)} /><Result label="Cloud · three years" value={money(result.cloudTotal)} /><Result label="ZGX · three years" value={money(result.zgxTotal)} /></div><div className="breakdown"><h3>What is included</h3><p><span>Cloud compute</span><strong>{count} × {gpu.name} × {hours.toLocaleString()} hours</strong></p><p><span>ZGX acquisition</span><strong>{money(price)}</strong></p><p><span>ZGX electricity / year</span><strong>{money(result.powerAnnual)}</strong></p><p><span>Enterprise software</span><strong>{license ? `${money(hw.license)} / year` : "Not included"}</strong></p></div><p className="disclaimer">Cloud prices are market assumptions and may differ by provider, region, reservation, and date. Memory capacity and cost comparisons do not imply equivalent inference throughput.</p></section></div></>;
+}
+
+function Field({ label, value, set, min, max, step, prefix }: { label: string; value: number; set: (n: number) => void; min: number; max: number; step: number; prefix?: string }) { return <label>{label}<strong className="range-value">{prefix}{value.toLocaleString()}</strong><input type="range" value={value} min={min} max={max} step={step} onChange={(e) => set(Number(e.target.value))} /></label>; }
+function Result({ label, value }: { label: string; value: string }) { return <article><span>{label}</span><strong>{value}</strong></article>; }
+
