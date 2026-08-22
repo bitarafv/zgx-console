@@ -4,6 +4,7 @@ import "./insights.css";
 
 export const metadata: Metadata = {
   title: "ZGX Console",
+  applicationName: "ZGX Console",
   description: "Explore, operate, learn, and compare AI on ZGX hardware.",
 };
 
