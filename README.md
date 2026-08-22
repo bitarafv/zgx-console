@@ -1,26 +1,37 @@
 # ZGX Console
 
-ZGX Console is a four-part web interface for exploring local AI use cases, viewing and operating a physical ZGX Nano, learning enterprise deployment concepts, and comparing total cost of ownership.
+ZGX Console is the main four-tab application: Simulation Dashboard, ZGX Node, Enterprise AI Insights, and TCO Calculator.
 
-## Local development
+## Repository map
 
-Requires Node.js 24 or newer.
+- `apps/web`: main console, public/static node state, and authenticated admin UI.
+- `apps/simulation`: exact Nano/Fury simulation experience.
+- `apps/node-bridge`: loopback-only allowlisted bridge to Siva.
+- `packages/contracts`: shared workload and telemetry types.
+- `scripts/zgx`: lifecycle implementation used by the root `./zgx` command.
+- `deploy`: Cloudflare boundary and optional user-service template.
+
+## Easy Nano commands
 
 ```bash
-cp .env.example .env.local
-npm install
-npm run dev
+./zgx setup       # first time, or after dependency changes
+./zgx start       # activate local console + live Nano bridge
+./zgx status
+./zgx logs
+./zgx stop        # hides live Node; public console stays online
+./zgx shutdown    # intentionally stop the public console too
 ```
 
-The default `mock` mode requires no Siva runtime, GPU, model, tunnel, or private endpoint. Set `ZGX_MOCK_ADMIN=true` only when testing local controls.
+Open `http://localhost:60370`. For remote local administration, forward it over SSH:
 
-## Runtime modes
+```bash
+ssh -L 60370:127.0.0.1:60370 bitarafv@ZGX_NANO_ADDRESS
+```
 
-- `mock`: deterministic fixture workloads and simulated live metrics.
-- `node`: proxies a private localhost Siva endpoint and grants local admin capability.
-- `cloud`: proxies the allowlisted API surface and trusts Cloudflare Access identity headers for admin authorization.
+Then open `http://localhost:60370/admin`.
 
-Never expose the Siva listener directly. In production, route traffic through a same-origin Worker/Tunnel configuration, make telemetry GET routes public, and require Cloudflare Access on mutation routes. Set `ZGX_ADMIN_EMAILS` in deployment secrets, never in source.
+## Runtime boundary
 
-See [docs/SETUP.md](docs/SETUP.md), [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md), and [docs/RECOVERY.md](docs/RECOVERY.md).
+The public cloud deployment is always available. With the Nano bridge inactive, ZGX Node intentionally displays: “The metrics would appear when the Admin runs the apps on their ZGX Nano.” While `./zgx start` is active, guests can see telemetry but cannot control workloads. Cloudflare Access protects `/admin` and every mutation route.
 
+Ports: web `60370`, simulation `60371`, node bridge `60372`, Siva `18000`. All Nano ports bind to loopback; Cloudflare Tunnel targets only the node bridge. See `deploy/cloudflare/README.md`.

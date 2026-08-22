@@ -1,31 +1,20 @@
 {
-  "name": "zgx-console",
+  "name": "zgx-console-workspace",
   "version": "1.0.0",
   "private": true,
+  "workspaces": ["apps/web", "apps/simulation", "apps/node-bridge", "packages/contracts"],
   "scripts": {
-    "dev": "next dev",
-    "build": "NEXT_TELEMETRY_DISABLED=1 next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "setup": "./zgx setup",
+    "dev": "./zgx dev",
+    "start": "./zgx start",
+    "stop": "./zgx stop",
+    "restart": "./zgx restart",
+    "status": "./zgx status",
+    "logs": "./zgx logs",
+    "lint": "npm --prefix apps/web run lint && npm --prefix apps/simulation run lint && npm --prefix apps/node-bridge run lint",
+    "typecheck": "npm --prefix apps/web run typecheck && npm --prefix apps/simulation run typecheck && npm --prefix apps/node-bridge run typecheck",
+    "test": "npm --prefix apps/web test && npm --prefix apps/simulation test && npm --prefix apps/node-bridge test",
+    "build": "npm --prefix apps/web run build && npm --prefix apps/simulation run build && npm --prefix apps/node-bridge run build"
   },
-  "engines": { "node": ">=24" },
-  "dependencies": {
-    "lucide-react": "^0.468.0",
-    "next": "^16.3.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3.3.6",
-    "@types/node": "^26.1.2",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "eslint": "^9.39.5",
-    "eslint-config-next": "^16.3.0",
-    "typescript": "5.9.3",
-    "vitest": "^3.2.4"
-  }
+  "engines": { "node": ">=24" }
 }
-

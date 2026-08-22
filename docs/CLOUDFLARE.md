@@ -1,22 +1,9 @@
-# Cloudflare deployment boundary
+# Cloudflare access model
 
-## Required routing
+`https://zgxconsole.bncvc.com` is routed by the existing named Tunnel to the loopback-only web origin at `http://127.0.0.1:60370`. This is required to serve the four-tab UI. The web server alone calls the token-protected node bridge at `127.0.0.1:60372`; never add a public hostname that targets 60372 or Siva port 18000 directly.
 
-Deploy the Next.js application behind Cloudflare and connect the Nano with a named Tunnel. Keep Siva on `127.0.0.1:18000`.
+Public allowlist: `GET /api/resources`, `/api/workloads`, `/api/policy`, and `/api/capability`.
 
-Public read routes:
+Create Cloudflare Access applications for `/admin` (including `/admin/siva` descendants), `/api/admin`, `/api/transitions`, and `/api/workloads/*/stop`, allowing only `bitarafv@gmail.com`. The application independently verifies the Access email before enabling mutations. Without the Access identity, `/api/admin/*` returns 403 even if the edge policy is missing.
 
-- `GET /api/resources`
-- `GET /api/workloads`
-- `GET /api/policy`
-- `GET /api/capability`
-
-Protected mutation routes:
-
-- `POST /api/transitions`
-- `POST /api/workloads/:id/stop`
-
-Create a Cloudflare Access application covering the mutation paths and allow only the owner's identity. The server also checks the authenticated email against the secret `ZGX_ADMIN_EMAILS`; UI button state is not authorization.
-
-Use production secrets for `ZGX_NODE_ORIGIN` and `ZGX_ADMIN_EMAILS`. Apply rate limits to public telemetry, disable caching, and do not create a wildcard proxy. Tunnel credentials must remain on the Nano or in the deployment secret store.
-
+The system `cloudflared.service` owns the existing multi-application tunnel and remains always on. Do not reinstall it from the ZGX launcher. Tunnel credentials stay in root-protected or chmod-600 local secret storage and never enter Git.

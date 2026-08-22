@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 720" role="img" aria-labelledby="title desc">
+  <title id="title">Synthetic educational chest radiograph</title><desc id="desc">An original grayscale chest-like illustration with no patient data.</desc>
+  <defs><radialGradient id="bg"><stop stop-color="#aeb9c5"/><stop offset="1" stop-color="#17202b"/></radialGradient><radialGradient id="lung"><stop stop-color="#15202a"/><stop offset=".75" stop-color="#44515e"/><stop offset="1" stop-color="#89939c"/></radialGradient><filter id="soft"><feGaussianBlur stdDeviation="10"/></filter></defs>
+  <rect width="600" height="720" fill="#090d12"/><ellipse cx="300" cy="365" rx="252" ry="330" fill="url(#bg)" opacity=".8"/>
+  <path d="M275 130C170 115 92 215 105 435c8 130 77 199 165 137 31-22 35-92 31-178z" fill="url(#lung)"/><path d="M325 130c105-15 183 85 170 305-8 130-77 199-165 137-31-22-35-92-31-178z" fill="url(#lung)"/>
+  <path d="M300 84v500M245 101q55 34 110 0" stroke="#d8e0e8" stroke-width="18" opacity=".35" fill="none"/><path d="M294 335c-82 25-62 180 8 224 83-44 93-180-8-224z" fill="#9aa5ae" opacity=".52"/>
+  <g fill="none" stroke="#d5dde5" opacity=".3" stroke-width="8"> <path d="M95 210q205 92 410 0"/><path d="M84 264q216 96 432 0"/><path d="M79 320q221 98 442 0"/><path d="M78 378q222 98 444 0"/><path d="M82 436q218 96 436 0"/><path d="M95 494q205 88 410 0"/></g>
+  <ellipse cx="397" cy="250" rx="54" ry="44" fill="#d6dce1" opacity=".24" filter="url(#soft)"/><text x="24" y="42" fill="#e8edf2" font-family="sans-serif" font-size="20">SYNTHETIC • PA</text><text x="550" y="42" fill="#e8edf2" font-family="sans-serif" font-size="24">R</text>
+</svg>

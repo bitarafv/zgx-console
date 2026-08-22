@@ -1,0 +1,8 @@
+{
+  "name": "@zgx/node-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"start":"node src/server.mjs","build":"node --check src/server.mjs","lint":"node --check src/server.mjs","typecheck":"node --check src/server.mjs","test":"node --test"},
+  "engines": {"node": ">=24"}
+}
