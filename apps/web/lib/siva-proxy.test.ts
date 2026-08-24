@@ -17,9 +17,10 @@ describe("Siva admin proxy", () => {
     expect(allowedSivaMethod("DELETE", "/api/workloads/noteai/stop")).toBe(false);
   });
   it("rewrites root-relative console routes", () => {
-    const rewritten = rewriteSivaHtml(`fetch('/api/workloads');window.open('/launch/pending');fetch("/api/policy")`);
+    const rewritten = rewriteSivaHtml(`fetch('/api/workloads');window.open('/launch/pending');fetch("/api/policy");actions.innerHTML=\`<a href="\${x.interactive_terminal?.path||x.browser_url}">Open application</a>\``);
     expect(rewritten).toContain("fetch('/admin/siva/api/workloads')");
     expect(rewritten).toContain("window.open('/admin/siva/launch/pending')");
     expect(rewritten).toContain('fetch("/admin/siva/api/policy")');
+    expect(rewritten).toContain('target="_blank" rel="noopener">Open application</a>');
   });
 });

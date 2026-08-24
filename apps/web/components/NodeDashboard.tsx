@@ -111,6 +111,8 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
   const admin = adminView;
   const help = true;
   const allocatedMemory = resources ? modelMemory(resources) : undefined;
+  const activeWorkloadId = workloads.find(item => item.active)?.id ?? null;
+  const inferenceSpeed = resources ? averagedInferenceSpeed(resources, Boolean(activeWorkloadId)) : null;
   const sortedWorkloads = useMemo(() => sortWorkloadsByIndustry(workloads), [workloads]);
   return <>
     <Hero role={admin ? "Admin View" : "Guest View"}/>
@@ -119,7 +121,7 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
       {resources ? <>
         <Metric label="Memory bandwidth" current={resources.memory_bandwidth.current_gbps} max={resources.memory_bandwidth.maximum_gbps} unit="GB/s" help={help ? "Shows how quickly data can move through unified memory, which can limit model execution speed." : undefined}/>
         <Metric label="Tensor active" current={resources.tensor_core.active_percent} max={100} unit="%" help={help ? "Shows how much of the AI accelerator is busy, helping identify available compute capacity." : undefined}/>
-        <Metric label="Inference speed" current={resources.inference_speed.tokens_per_second} max={Math.max(resources.inference_speed.peak ?? resources.inference_speed.tokens_per_second, 1)} unit="t/s" help={help ? "Measures generated tokens per second, a practical indicator of response throughput." : undefined}/>
+        <InferenceMetric value={inferenceSpeed} active={Boolean(activeWorkloadId)} peak={resources.inference_speed.peak} help={help ? "Measures generated tokens per second, a practical indicator of response throughput." : undefined}/>
         <Metric label="SoC power" current={resources.soc_power.current_watts} max={resources.soc_power.limit_watts} unit="W" help={help ? "Compares current system-on-chip power use with its limit to show efficiency and thermal headroom." : undefined}/>
       </> : <p className="muted">Connecting to telemetry…</p>}
     </div>
@@ -134,10 +136,20 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
           {item.active && hasAllocatedMemory(allocatedMemory) && <WorkloadMemoryMetric value={allocatedMemory}/>}
           <WorkloadFooter item={item} showLifecycle={state === "stopping"}/>
         </div>
-        <button disabled={!admin || Boolean(state)} title={!admin ? "Admin access required" : state ? "Waiting for unload confirmation" : undefined} onClick={() => item.active ? void stop(item) : void launch(item)}>{state === "stopping" ? "Stopping…" : item.active ? "Stop" : "Launch / switch"}</button>
+        <div className="workload-actions">
+          {item.active && usableEndpoint(item.browser_url) && <a className="workload-open" href={item.browser_url!} target="_blank" rel="noopener">Open the app</a>}
+          <button className={item.active ? "workload-stop" : "workload-launch"} disabled={!admin || Boolean(state)} title={!admin ? "Admin access required" : state ? "Waiting for unload confirmation" : undefined} onClick={() => item.active ? void stop(item) : void launch(item)}>{state === "stopping" ? "Stopping…" : item.active ? "Stop" : "Launch / switch"}</button>
+        </div>
       </article>;
     })}</div>
   </>;
+}
+
+function averagedInferenceSpeed(resources: Resources, active: boolean) {
+  const raw = Math.max(0, resources.inference_speed.tokens_per_second || 0);
+  const average = Math.max(0, resources.inference_speed.average ?? 0);
+  if (active && raw === 0 && average === 0) return null;
+  return average > 0 ? average : raw;
 }
 
 function sortWorkloadsByIndustry(items: Workload[]) {
@@ -147,6 +159,10 @@ function sortWorkloadsByIndustry(items: Workload[]) {
     return leftIndustry.localeCompare(rightIndustry, undefined, { sensitivity: "base" })
       || left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
   });
+}
+
+function usableEndpoint(value: string | null | undefined) {
+  return Boolean(value && value !== "#" && /^https?:\/\//.test(value));
 }
 
 async function actionError(response: Response) {
@@ -224,6 +240,14 @@ function formatDuration(seconds: number) {
 function Metric({ label, current, max, unit, help, maximumLabel }: { label: string; current: number; max: number; unit: string; help?: string; maximumLabel?: string }) {
   const percent = max > 0 ? Math.min(100, Math.round(current / max * 100)) : 0;
   return <article className="metric"><div><MetricLabel label={label} help={help}/><strong>{current.toFixed(current % 1 ? 1 : 0)} {unit}</strong></div><div className="meter"><i style={{ width: `${percent}%` }}/></div><small>{percent}% of {maximumLabel ?? "measured maximum"}</small></article>;
+}
+
+function InferenceMetric({ value, active, peak, help }: { value: number | null; active: boolean; peak?: number | null; help?: string }) {
+  if (active && value == null) {
+    return <article className="metric metric-waiting"><div><MetricLabel label="Inference speed" help={help}/></div><div className="meter"><i style={{ width: "0%" }}/></div><small>Throughput appears when generation begins</small></article>;
+  }
+  const current = value ?? 0;
+  return <Metric label="Inference speed" current={current} max={Math.max(peak ?? current, 1)} unit="t/s" help={help} maximumLabel="observed peak"/>;
 }
 
 function MetricLabel({ label, help }: { label: string; help?: string }) {

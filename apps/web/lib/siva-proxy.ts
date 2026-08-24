@@ -20,5 +20,11 @@ export function allowedSivaMethod(method: string, path: string): boolean {
 }
 
 export function rewriteSivaHtml(source: string): string {
-  return source.replace(/(["'])\/api\//g, "$1/admin/siva/api/").replace(/(["'])\/launch\//g, "$1/admin/siva/launch/");
+  return source
+    .replace(/(["'])\/api\//g, "$1/admin/siva/api/")
+    .replace(/(["'])\/launch\//g, "$1/admin/siva/launch/")
+    .replace(
+      '<a href="${x.interactive_terminal?.path||x.browser_url}">Open application</a>',
+      '<a href="${x.interactive_terminal?.path||x.browser_url}" target="_blank" rel="noopener">Open application</a>',
+    );
 }
