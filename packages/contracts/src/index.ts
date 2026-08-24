@@ -3,7 +3,12 @@ export type NodeState = "static" | "live-guest" | "live-admin" | "stale";
 export type Workload = {
   id: string; name: string; active: boolean; description: string; browser_url: string | null;
   external_browser_url?: string | null; model_names: string[]; intelligence_services: string[];
+  industry_verticals?: string[];
   expected_cold_load_seconds: number;
+  workload_class?: string; policy?: string; shared_services?: string[]; components?: Record<string,string>;
+  inference_consumers?: string[]; telegram_allowlist_configured?: boolean; actions?: string[];
+  model_residency?: "resident" | "warm-shared" | "unmapped" | "unknown";
+  idle_retention?: "retained" | "releasing" | "released" | "unknown";
 };
 
 export type MetricValue = { available?: boolean; source?: string; average?: number | null; peak?: number | null };

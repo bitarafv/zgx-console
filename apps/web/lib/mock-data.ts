@@ -1,10 +1,10 @@
 import type { Resources, Workload } from "./types";
 
 export const workloads: Workload[] = [
-  { id: "noteai", name: "NoteAI", active: true, description: "Capture, transcribe, and shape private notes with a local language model.", browser_url: "#", model_names: ["Qwen3 32B"], intelligence_services: [], expected_cold_load_seconds: 600 },
-  { id: "scribeai", name: "ScribeAI", active: false, description: "Turn recordings into speaker-aware transcripts and polished summaries.", browser_url: "#", model_names: ["Whisper Large v3 Turbo", "Pyannote", "Qwen3 32B"], intelligence_services: [], expected_cold_load_seconds: 600 },
-  { id: "dietplan", name: "DietPlan Edge", active: false, description: "Scan packaged food and retrieve live product intelligence locally.", browser_url: "#", model_names: [], intelligence_services: ["Open Food Facts"], expected_cold_load_seconds: 180 },
-  { id: "qwen-dev", name: "Qwen Development", active: false, description: "Build against an OpenAI-compatible local development API.", browser_url: "#", model_names: ["Qwen3 Coder 30B"], intelligence_services: [], expected_cold_load_seconds: 300 },
+  { id: "noteai", name: "Doctor NoteAI", active: true, description: "Support clinician–patient consultations and shape private clinical notes with local AI.", browser_url: "#", model_names: ["Whisper Large v3 Turbo", "Pyannote Community-1", "Qwen3 32B"], intelligence_services: [], industry_verticals: ["Healthcare"], expected_cold_load_seconds: 600, model_residency: "warm-shared", idle_retention: "retained" },
+  { id: "scribeai", name: "Audio2Text", active: false, description: "Turn recordings into speaker-aware transcripts and polished summaries.", browser_url: "#", model_names: ["Whisper Large v3 Turbo", "Pyannote", "Qwen3 32B"], intelligence_services: [], industry_verticals: ["Healthcare", "Enterprise AI"], expected_cold_load_seconds: 600 },
+  { id: "dietplan", name: "DietPlan Edge", active: false, description: "Scan packaged food and retrieve live product intelligence locally.", browser_url: "#", model_names: [], intelligence_services: ["Open Food Facts"], industry_verticals: ["Healthcare"], expected_cold_load_seconds: 180 },
+  { id: "qwen-dev", name: "Local LLM and AI Development", active: false, description: "Develop locally with Open WebUI, an OpenAI-compatible model endpoint, and the Qwen Code Visual Studio Code extension.", browser_url: "#", model_names: ["Qwen3 Coder 30B"], intelligence_services: [], industry_verticals: ["Enterprise AI"], expected_cold_load_seconds: 300 },
 ];
 
 export function mockResources(): Resources {

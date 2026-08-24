@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-set -a; source "$ROOT/.env.local"; set +a
-cleanup(){ kill -- "-$web_pid" "-$sim_pid" 2>/dev/null||true;wait "$web_pid" "$sim_pid" 2>/dev/null||true; }
+set -a
+source "$ROOT/.env.local"
+set +a
+
+mkdir -p "$ROOT/.logs"
+cleanup(){
+  kill -- "-$web_pid" "-$sim_pid" 2>/dev/null || true
+  wait "$web_pid" "$sim_pid" 2>/dev/null || true
+}
 trap cleanup EXIT
 trap 'exit 0' INT TERM
+
 cd "$ROOT"
-setsid env NEXT_PUBLIC_BASE_PATH=/simulation npm --prefix apps/simulation start -- --hostname 127.0.0.1 --port "${ZGX_SIMULATION_PORT:-60371}" >"$ROOT/.logs/simulation.log" 2>&1 & sim_pid=$!
-setsid env ZGX_RUNTIME_MODE=cloud ZGX_LOCAL_ADMIN=true ZGX_NODE_BRIDGE_ORIGIN="http://127.0.0.1:${ZGX_BRIDGE_PORT:-60372}" ZGX_SIMULATION_ORIGIN="http://127.0.0.1:${ZGX_SIMULATION_PORT:-60371}" NEXT_PUBLIC_ZGX_SIMULATION_URL=/simulation npm --prefix apps/web start -- --hostname 127.0.0.1 --port "${ZGX_WEB_PORT:-60370}" >"$ROOT/.logs/web.log" 2>&1 & web_pid=$!
+setsid env NEXT_PUBLIC_BASE_PATH=/simulation npm --prefix apps/simulation start -- --hostname 127.0.0.1 --port "${ZGX_SIMULATION_PORT:-60371}" >"$ROOT/.logs/simulation.log" 2>&1 &
+sim_pid=$!
+setsid env ZGX_RUNTIME_MODE=cloud ZGX_LOCAL_ADMIN=true ZGX_NODE_BRIDGE_ORIGIN="http://127.0.0.1:${ZGX_BRIDGE_PORT:-60372}" ZGX_SIMULATION_ORIGIN="http://127.0.0.1:${ZGX_SIMULATION_PORT:-60371}" NEXT_PUBLIC_ZGX_SIMULATION_URL=/simulation npm --prefix apps/web start -- --hostname 127.0.0.1 --port "${ZGX_WEB_PORT:-60370}" >"$ROOT/.logs/web.log" 2>&1 &
+web_pid=$!
+
 wait -n "$web_pid" "$sim_pid"
 exit 1

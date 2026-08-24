@@ -1,11 +1,39 @@
 # Setup and operation
 
-Requires Node.js 24 or newer. On Windows, macOS, or Linux, run `npm ci` and `npm run dev` for the mock-only four-tab console. No Siva installation, model, tunnel, or secret is required.
+Node.js 24 or newer is required. On Windows, macOS, or Linux, run `npm ci` and `npm run dev` for the mock-only four-tab console. No Siva installation, model, tunnel, or secret is required. Open `http://localhost:60370`; ZGX Console does not use port 3000.
 
-On the Nano, clone the repository to `~/projects/zgx-console` and run `./zgx setup`, then `./zgx start`. The setup command creates random bridge secrets in ignored `.env.local`; never copy them into Git.
+## Nano setup
 
-`./zgx stop` stops only the live node bridge, so the public site stays online and ZGX Node becomes static. `./zgx shutdown` intentionally stops the public web service. Neither command stops Siva, containers, or models.
+Clone the repository to `~/projects/zgx-console`, then run:
 
-For live Nano development use `npm run dev:nano`. For local admin access from another computer, use SSH port forwarding to 60370 and browse `/admin`. Do not bind the admin interface to the LAN.
+```bash
+./zgx setup
+./zgx start
+```
 
-The public deployment and Nano activation are independent: the public site stays online when the Nano is off, and ZGX Node falls back to its explanatory static panel.
+`setup` creates ignored bridge secrets in `.env.local`, validates and builds the applications, and installs two systemd user services:
+
+- `zgx-console.service` owns web port `60370` and simulation port `60371`.
+- `zgx-node-bridge.service` exclusively owns bridge port `60372`.
+
+Siva on port `18000` and all launched workloads remain outside console lifecycle management.
+
+## Everyday commands
+
+```bash
+./zgx start       # ensure the console is online and enable live telemetry
+./zgx stop        # stop only live telemetry; keep the public console online
+./zgx restart     # restart console and bridge
+./zgx update      # validate, build, install current units, and activate the build
+./zgx status      # show service and port ownership
+./zgx logs        # follow logs for both services
+./zgx shutdown    # stop console and bridge, but never Siva or workloads
+```
+
+`update` preserves bridge state: if live telemetry was active before the update, it is restored afterward. Use `update` after pulling or editing source; a plain restart does not build source files.
+
+For live Nano development, first run `./zgx shutdown`, then `npm run dev:nano`. Development mode refuses to start if a production service owns one of the console ports.
+
+For local admin access from another computer, forward port 60370 over SSH and browse `/admin`. Guest and Admin now use the same MVP Dashboard; controls are enabled only for authenticated Admin sessions. Do not bind the admin interface to the LAN.
+
+The public site remains online after `./zgx stop`, and MVP Dashboard falls back to its explanatory static panel until `./zgx start` restores the bridge.

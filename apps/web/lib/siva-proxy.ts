@@ -9,13 +9,13 @@ export function sivaPath(segments: string[] = []): string | null {
     if (segments.length === 3) return `/api/transitions/${segments[2]}`;
     if (segments.length === 4 && ["events", "report"].includes(segments[3])) return `/api/transitions/${segments[2]}/${segments[3]}`;
   }
-  if (segments.length === 4 && segments[0] === "api" && segments[1] === "workloads" && SAFE_ID.test(segments[2]) && segments[3] === "stop") return `/api/workloads/${segments[2]}/stop`;
+  if (segments.length === 4 && segments[0] === "api" && segments[1] === "workloads" && SAFE_ID.test(segments[2]) && ["stop", "restart", "emergency-stop", "logs"].includes(segments[3])) return `/api/workloads/${segments[2]}/${segments[3]}`;
   return null;
 }
 
 export function allowedSivaMethod(method: string, path: string): boolean {
-  if (method === "GET") return path === "/" || path.startsWith("/launch/") || path === "/api/resources" || path === "/api/workloads" || path === "/api/policy" || path === "/api/transitions" || /^\/api\/transitions\/[A-Za-z0-9-]+(?:\/(?:events|report))?$/.test(path);
-  if (method === "POST") return path === "/api/transitions" || /^\/api\/workloads\/[A-Za-z0-9-]+\/stop$/.test(path);
+  if (method === "GET") return path === "/" || path.startsWith("/launch/") || path === "/api/resources" || path === "/api/workloads" || path === "/api/policy" || path === "/api/transitions" || /^\/api\/workloads\/[A-Za-z0-9-]+\/logs$/.test(path) || /^\/api\/transitions\/[A-Za-z0-9-]+(?:\/(?:events|report))?$/.test(path);
+  if (method === "POST") return path === "/api/transitions" || /^\/api\/workloads\/[A-Za-z0-9-]+\/(?:stop|restart|emergency-stop)$/.test(path);
   return false;
 }
 

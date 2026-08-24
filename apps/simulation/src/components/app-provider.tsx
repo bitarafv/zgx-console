@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { Selection } from "@/lib/types";
 import { parseStoredSelection } from "@/lib/selection";
 
@@ -14,6 +15,7 @@ interface AppState {
 const Context = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [selection, setSelectionState] = useState<Selection>();
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   useEffect(() => {
@@ -29,6 +31,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => {
+    const receiveTheme = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.origin !== window.location.origin) return;
+      if (event.data?.type !== "zgx:set-theme" || !["light", "dark"].includes(event.data.theme)) return;
+      setTheme(event.data.theme);
+      try { localStorage.setItem("zgx-theme", event.data.theme); } catch {}
+    };
+    window.addEventListener("message", receiveTheme);
+    return () => window.removeEventListener("message", receiveTheme);
+  }, []);
+  useEffect(() => { if (window.parent !== window) window.parent.postMessage({ type: "zgx:simulation-route", path: pathname }, window.location.origin); }, [pathname]);
   const setSelection = (value: Selection) => { setSelectionState(value); try { localStorage.setItem("zgx-selection", JSON.stringify(value)); } catch {} };
   const toggleTheme = () => setTheme((value) => { const next = value === "dark" ? "light" : "dark"; try { localStorage.setItem("zgx-theme", next); } catch {}; return next; });
   return <Context.Provider value={{ selection, setSelection, theme, toggleTheme }}>{children}</Context.Provider>;

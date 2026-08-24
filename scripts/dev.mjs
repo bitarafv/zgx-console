@@ -1,9 +1,12 @@
 import { spawn } from "node:child_process";
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const common = { stdio: "inherit", shell: false };
+console.log("ZGX Console local: http://localhost:60370");
+console.log("Demo Display direct: http://localhost:60371/simulation");
+console.log("Public tunnel: https://zgxconsole.bncvc.com");
 const children = [
-  spawn(npm, ["--prefix", "apps/simulation", "run", "dev", "--", "--hostname", "127.0.0.1", "--port", "60371"], { ...common, env: { ...process.env, NEXT_PUBLIC_BASE_PATH: "/simulation" } }),
-  spawn(npm, ["--prefix", "apps/web", "run", "dev", "--", "--hostname", "127.0.0.1", "--port", "60370"], { ...common, env: { ...process.env, ZGX_RUNTIME_MODE: "mock", ZGX_SIMULATION_ORIGIN: "http://127.0.0.1:60371", NEXT_PUBLIC_ZGX_SIMULATION_URL: "/simulation" } }),
+  spawn(npm, ["--prefix", "apps/simulation", "run", "dev"], { ...common, env: { ...process.env, NEXT_PUBLIC_BASE_PATH: "/simulation" } }),
+  spawn(npm, ["--prefix", "apps/web", "run", "dev"], { ...common, env: { ...process.env, ZGX_RUNTIME_MODE: "mock", ZGX_SIMULATION_ORIGIN: "http://127.0.0.1:60371", NEXT_PUBLIC_ZGX_SIMULATION_URL: "/simulation" } }),
 ];
 let stopping = false;
 function stop(code = 0) {

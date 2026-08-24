@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+set -a
+source "$ROOT/.env.local"
+set +a
+cd "$ROOT"
+exec env ZGX_BRIDGE_HOST=127.0.0.1 ZGX_BRIDGE_PORT="${ZGX_BRIDGE_PORT:-60372}" ZGX_NODE_ORIGIN="${ZGX_NODE_ORIGIN:-http://127.0.0.1:18000}" npm --prefix apps/node-bridge start

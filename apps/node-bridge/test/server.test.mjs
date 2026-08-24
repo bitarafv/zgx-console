@@ -1,12 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 process.env.NODE_ENV="test";
-const {allowedAdminRead,allowedMutation,externalize}=await import("../src/server.mjs");
+const {allowedAdminRead,allowedMutation,externalize,upstreamHeaders}=await import("../src/server.mjs");
 test("only allowlisted mutations pass",()=>{
   assert.equal(allowedMutation("/api/transitions"),true);
   assert.equal(allowedMutation("/api/workloads/noteai/stop"),true);
   assert.equal(allowedMutation("/api/workloads/../../stop"),false);
   assert.equal(allowedMutation("/api/resources"),false);
+});
+test("privileged mutations use Siva's exact loopback origin",()=>{
+  const headers=upstreamHeaders(true,Buffer.from("{}"));
+  assert.equal(headers.host,"127.0.0.1:18000");
+  assert.equal(headers.origin,"http://127.0.0.1:18000");
+  assert.equal(headers["content-type"],"application/json");
+});
+test("public reads retain the public hostname",()=>{
+  const headers=upstreamHeaders(false);
+  assert.equal(headers.host,"zgxconsole.bncvc.com");
+  assert.equal(headers.origin,undefined);
 });
 test("only allowlisted admin reads pass",()=>{
   assert.equal(allowedAdminRead("/"),true);
@@ -24,4 +35,15 @@ test("externalizes or redacts browser URLs",()=>{
   assert.equal(workloads[0].browser_url,"https://notes.bncvc.com");
   assert.equal(workloads[1].browser_url,null);
   assert.equal(externalize("/api/transitions/id",{browser_url:"http://localhost:8001"}).browser_url,null);
+});
+
+test("normalizes lifecycle telemetry from Siva",()=>{
+  const [valid,invalid]=externalize("/api/workloads",[
+    {id:"noteai",browser_url:null,model_residency:"warm-shared",idle_retention:"retained"},
+    {id:"dietplan",browser_url:null,model_residency:"hot",idle_retention:"forever"},
+  ]);
+  assert.equal(valid.model_residency,"warm-shared");
+  assert.equal(valid.idle_retention,"retained");
+  assert.equal(invalid.model_residency,undefined);
+  assert.equal(invalid.idle_retention,undefined);
 });
