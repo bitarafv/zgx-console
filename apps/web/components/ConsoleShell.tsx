@@ -2,11 +2,13 @@
 import { useCallback,useEffect,useState } from "react";
 import { Calculator,Cpu,GraduationCap,LayoutDashboard,Moon,Sun } from "lucide-react";
 import { consoleHash,normalizeSimulationPath,parseConsoleHash,type ConsoleTab } from "@/lib/navigation";
+import { useZgxTelemetry } from "@/lib/telemetry";
 import { SimulationFrame } from "./SimulationFrame"; import { NodeDashboard } from "./NodeDashboard"; import { EnterpriseInsights } from "./EnterpriseInsights"; import { TcoCalculator } from "./TcoCalculator";
 const tabs=[{id:"simulation",number:"01",label:"Demo Display",icon:LayoutDashboard},{id:"node",number:"02",label:"MVP Dashboard",icon:Cpu},{id:"insights",number:"03",label:"Enterprise AI Insights",icon:GraduationCap},{id:"tco",number:"04",label:"TCO Calculator",icon:Calculator}] as const;
 type Theme="light"|"dark";
 export function ConsoleShell({initialTab="simulation",adminView=false}:{initialTab?:ConsoleTab;adminView?:boolean}){
  const[tab,setTab]=useState<ConsoleTab>(initialTab),[simulationPath,setSimulationPath]=useState("/"),[theme,setTheme]=useState<Theme>("dark");
+ useZgxTelemetry(tabs.find(item=>item.id===tab)?.label||"Demo Display");
  useEffect(()=>{const timer=window.setTimeout(()=>{try{const saved=localStorage.getItem("zgx-theme");if(saved==="light"||saved==="dark")setTheme(saved)}catch{}},0);return()=>window.clearTimeout(timer)},[]);
  useEffect(()=>{document.documentElement.dataset.theme=theme},[theme]);
  useEffect(()=>{const apply=()=>{if(!window.location.hash){setTab(initialTab);return}const next=parseConsoleHash(window.location.hash);setTab(next.tab);if(next.tab==="simulation")setSimulationPath(next.simulationPath)};apply();window.addEventListener("hashchange",apply);window.addEventListener("popstate",apply);return()=>{window.removeEventListener("hashchange",apply);window.removeEventListener("popstate",apply)}},[initialTab]);
