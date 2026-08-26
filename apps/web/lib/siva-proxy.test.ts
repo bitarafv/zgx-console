@@ -21,6 +21,7 @@ describe("Siva admin proxy", () => {
     expect(rewritten).toContain("fetch('/admin/siva/api/workloads')");
     expect(rewritten).toContain("window.open('/admin/siva/launch/pending')");
     expect(rewritten).toContain('fetch("/admin/siva/api/policy")');
-    expect(rewritten).toContain('target="_blank" rel="noopener">Open application</a>');
+    expect(rewritten).toContain(`searchParams.set("demo","false")`);
+    expect(rewritten).not.toContain('target="_blank" rel="noopener">Open application</a>');
   });
 });

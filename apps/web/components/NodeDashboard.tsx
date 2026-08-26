@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleHelp } from "lucide-react";
+import { demoModeUrl, productionModeUrl } from "@/lib/demo-mode";
 import { mockResources, workloads as fallbackWorkloads } from "@/lib/mock-data";
 import type { AllocatedModelMemory, Resources, Workload } from "@/lib/types";
 
@@ -13,6 +14,8 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
   const [workloads, setWorkloads] = useState<Workload[]>(adminView ? [] : fallbackWorkloads);
   const [error, setError] = useState("");
   const [lifecycle, setLifecycle] = useState<Record<string, LifecycleState>>({});
+  const [launchSort, setLaunchSort] = useState<"fastest" | "slowest">("fastest");
+  const [industryFilter, setIndustryFilter] = useState("all");
 
   const reconcileLifecycle = useCallback((items: Workload[]) => {
     setLifecycle(current => {
@@ -120,7 +123,13 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
   const allocatedMemory = resources ? modelMemory(resources) : undefined;
   const activeWorkloadId = workloads.find(item => item.active)?.id ?? null;
   const inferenceSpeed = resources ? averagedInferenceSpeed(resources, Boolean(activeWorkloadId)) : null;
-  const sortedWorkloads = useMemo(() => sortWorkloadsByIndustry(workloads), [workloads]);
+  const industries = useMemo(() => [...new Set(workloads.flatMap(item => item.industry_verticals ?? []))].sort(), [workloads]);
+  const sortedWorkloads = useMemo(() => workloads
+    .filter(item => industryFilter === "all" || item.industry_verticals?.includes(industryFilter))
+    .sort((left, right) => {
+      const delta = resourceLaunchEstimate(left) - resourceLaunchEstimate(right);
+      return (launchSort === "fastest" ? delta : -delta) || left.name.localeCompare(right.name);
+    }), [workloads, launchSort, industryFilter]);
   const runningModelTransition = workloads.find(item => item.runtime_status?.model_transition?.status === "running")?.runtime_status?.model_transition;
   return <>
     <Hero role={admin ? "Admin View" : "Guest View"}/>
@@ -133,33 +142,43 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
         <Metric label="SoC power" current={resources.soc_power.current_watts} max={resources.soc_power.limit_watts} unit="W" help={help ? "Compares current system-on-chip power use with its limit to show efficiency and thermal headroom." : undefined}/>
       </> : <p className="muted">Connecting to telemetry…</p>}
     </div>
-    <div className="section-head"><div><p className="eyebrow">APPLICATION CONTROL</p><h2>Installed workloads</h2></div><p>Live node status and installed applications.</p></div>
+    <HardwareContext resources={resources}/>
+    <div className="section-head"><div><p className="eyebrow">APPLICATION CONTROL</p><h2>Installed Applications</h2></div><div className="workload-section-tools"><p>Live node status and installed applications.</p><label>Sort<select aria-label="Sort by launch estimate" value={launchSort} onChange={event => setLaunchSort(event.target.value as "fastest" | "slowest")}><option value="fastest">Launch estimate: fastest</option><option value="slowest">Launch estimate: slowest</option></select></label><label>Filter<select aria-label="Filter view by industry" value={industryFilter} onChange={event => setIndustryFilter(event.target.value)}><option value="all">All industries</option>{industries.map(value => <option key={value} value={value}>{value}</option>)}</select></label></div></div>
     <div className="workloads">{sortedWorkloads.map(item => {
       const state = lifecycle[item.id];
       const activeModelAllocation = item.runtime_status?.active_model_allocation_mib;
       const hasActiveModelAllocation = Number.isFinite(activeModelAllocation) && Number(activeModelAllocation) > 0;
       const launching = state === "launching";
-      const loadingProgress = item.runtime_status?.model_transition?.status === "running"
-        ? item.runtime_status.model_transition.progressPercent
+      const modelLoading = item.runtime_status?.model_transition?.status === "running";
+      const loadingProgress = modelLoading
+        ? item.runtime_status?.model_transition?.progressPercent
         : runningModelTransition?.progressPercent;
-      return <article key={item.id} className={item.active || state ? "workload-live" : undefined}>
+      const hermesTelemetry = item.id === "hermes" && (launching || item.active);
+      const showMemory = hermesTelemetry || launching || modelLoading || (item.id === "noteai" && item.active && hasActiveModelAllocation) || (item.id !== "noteai" && item.active && hasAllocatedMemory(allocatedMemory));
+      const demoUrl = workloadDemoUrl(item);
+      return <article key={item.id} className={[item.active || state ? "workload-live" : "", showMemory ? "workload-has-memory" : ""].filter(Boolean).join(" ") || undefined}>
         <div className="workload-content">
           <div className="workload-card-head"><div className="workload-title"><span className={item.active ? "dot active" : "dot"}/><h3>{item.name}</h3></div><div className="industry-tags" aria-label="Industry verticals">{(item.industry_verticals ?? []).map(value => <span className="industry-chip" key={value}>{value}</span>)}</div></div>
           <p>{item.description}</p>
           <div className="chips model-tags">{[...item.model_names, ...item.intelligence_services].map(value => <ModelBadge key={value} item={item} value={value}/>)}</div>
-          {launching
+          {hermesTelemetry
+            ? <HermesModelMemoryMetric value={allocatedMemory} progress={loadingProgress} loading={launching || modelLoading}/>
+            : launching || modelLoading
             ? <LoadingModelMemoryMetric progress={loadingProgress}/>
             : item.id === "noteai" && item.active && hasActiveModelAllocation
             ? <NoteAiModelMemoryMetric allocatedMiB={Number(activeModelAllocation)}/>
             : item.id !== "noteai" && item.active && hasAllocatedMemory(allocatedMemory) ? <WorkloadMemoryMetric value={allocatedMemory}/> : null}
           {item.active && item.runtime_status && <ModelTransitionTelemetry status={item.runtime_status}/>}
-          <WorkloadFooter item={item} showLifecycle={state === "stopping"}/>
+          <WorkloadFooter item={item} showLifecycle={state === "stopping"} showEndpoint={admin}/>
         </div>
         <div className="workload-actions">
+          {demoUrl
+            ? <a className="workload-demo" href={demoUrl} target="_blank" rel="noopener noreferrer">See a demo</a>
+            : <button type="button" className="workload-demo" disabled title="Demo URL unavailable">See a demo</button>}
           {item.active && usableEndpoint(item.browser_url) && (admin
-            ? <a className="workload-open" href={item.browser_url!} target="_blank" rel="noopener">Open the app</a>
+            ? <a className="workload-open" href={productionModeUrl(item.external_browser_url ?? item.browser_url) ?? item.browser_url!} target="_blank" rel="noopener">Open the app</a>
             : <button type="button" className="workload-open" disabled title="Admin access required">Open the app</button>)}
-          <button className={item.active ? "workload-stop" : "workload-launch"} disabled={!admin || Boolean(state)} title={!admin ? "Admin access required" : state ? "Waiting for model transition" : undefined} onClick={() => item.active ? void stop(item) : void launch(item)}>{state === "launching" ? "Loading…" : state === "stopping" ? "Stopping…" : item.active ? "Stop" : "Launch / switch"}</button>
+          <span className={!admin ? "admin-only-control" : undefined} data-tooltip={!admin ? "Admin Mode Only" : undefined}><button className={item.active ? "workload-stop" : "workload-launch"} disabled={!admin || Boolean(state)} title={admin && state ? "Waiting for model transition" : undefined} onClick={() => item.active ? void stop(item) : void launch(item)}>{state === "launching" ? "Loading…" : state === "stopping" ? "Stopping…" : item.active ? "Stop" : "Launch"}</button></span>
         </div>
       </article>;
     })}</div>
@@ -173,13 +192,26 @@ function averagedInferenceSpeed(resources: Resources, active: boolean) {
   return average > 0 ? average : raw;
 }
 
-function sortWorkloadsByIndustry(items: Workload[]) {
-  return [...items].sort((left, right) => {
-    const leftIndustry = left.industry_verticals?.[0] ?? "Other";
-    const rightIndustry = right.industry_verticals?.[0] ?? "Other";
-    return leftIndustry.localeCompare(rightIndustry, undefined, { sensitivity: "base" })
-      || left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
-  });
+function workloadDemoUrl(item: Workload) {
+  if (item.id === "dietplan") return "/admin/demo/dietplan";
+  if (item.id === "hermes") return "/admin/demo/hermes";
+  const configured = item.external_browser_url ?? item.browser_url;
+  if (!configured) return null;
+  if (item.id !== "dossierai") return demoModeUrl(configured);
+  try {
+    const url = new URL(configured);
+    url.pathname = "/";
+    return demoModeUrl(url.toString());
+  } catch {
+    return null;
+  }
+}
+
+function HardwareContext({ resources }: { resources: Resources | null }) {
+  const memory = resources ? modelMemory(resources) : undefined;
+  const capacity = memory?.capacity_mib ? `${(memory.capacity_mib / 1024).toFixed(1)} GiB unified model memory` : "GPU memory discovering";
+  const power = resources ? `${resources.soc_power.limit_watts} W SoC compute profile` : "compute profile discovering";
+  return <p className="hardware-context"><span>Hardware-aware scheduling</span>{capacity} · {power}. Capacity and launch eligibility update from live node telemetry.</p>;
 }
 
 function usableEndpoint(value: string | null | undefined) {
@@ -229,9 +261,25 @@ function ModelBadge({ item, value }: { item: Workload; value: string }) {
   const name = displayModelName(value.split("@")[0]);
   const awq = name === "Qwen/Qwen3-32B-AWQ";
   const bf16 = name === "Qwen/Qwen3-32B-BF16";
-  if (!awq && !bf16) return <span>{name}</span>;
+  const dossierModel = isDossier(item) && ` ${name} `.match(/\D(?:20|120)\s*b\D/i);
+  const audioModel = item.id === "scribeai";
+  if (!awq && !bf16 && !dossierModel && !audioModel) return <span>{name}</span>;
+  if (dossierModel) {
+    const activeModel = item.runtime_status?.model_name ?? item.runtime_status?.models?.[0] ?? item.runtime_status?.active_model ?? "";
+    const normalize = (model: string) => model.split("@")[0].trim().toLowerCase();
+    const active = Boolean(item.runtime_status?.ready && normalize(activeModel) === normalize(value));
+    return <span className={`model-badge ${active ? "active" : "inactive"}`}>{name} <b>({active ? "Active" : "Inactive"})</b></span>;
+  }
+  if (audioModel) {
+    const active = Boolean(item.runtime_status?.ready && item.runtime_status.models?.some(model => model.split("@")[0] === value.split("@")[0]));
+    return <span className={`model-badge ${active ? "active" : "inactive"}`}>{name} <b>({active ? "Active" : "Inactive"})</b></span>;
+  }
   const active = Boolean(item.runtime_status?.ready && ((awq && item.runtime_status.active_model === "awq") || (bf16 && item.runtime_status.active_model === "bf16")));
   return <span className={`model-badge ${active ? "active" : "inactive"}`}>{name} <b>({active ? "Active" : "non-Active"})</b></span>;
+}
+
+function isDossier(item: Workload) {
+  return item.id.toLowerCase().includes("dossier") || item.name.toLowerCase().includes("dossier");
 }
 
 function WorkloadMemoryMetric({ value }: { value: AllocatedModelMemory & { allocated_mib: number; capacity_mib: number } }) {
@@ -246,6 +294,17 @@ function LoadingModelMemoryMetric({ progress }: { progress?: number }) {
   return <div className="workload-memory workload-memory-loading" aria-live="polite" aria-busy="true"><div><MetricLabel label="Allocated Model VRAM" help={MODEL_MEMORY_HELP}/><strong>{percent}%</strong></div><div className="meter"><i style={{ width: `${percent}%` }}/></div><small>{percent > 0 ? `Loading model… ${percent}%` : "Starting model load…"}</small></div>;
 }
 
+function HermesModelMemoryMetric({ value, progress, loading }: { value?: AllocatedModelMemory; progress?: number; loading: boolean }) {
+  if (hasAllocatedMemory(value)) {
+    const current = value.allocated_mib / 1024;
+    const max = value.capacity_mib / 1024;
+    const percent = Math.max(0, Math.min(100, Math.round(current / max * 100)));
+
+    return <div className="workload-memory hermes-model-memory" aria-live="polite" aria-busy={loading}><div><MetricLabel label="Allocated Model VRAM" help={MODEL_MEMORY_HELP}/><strong>{current.toFixed(1)} GiB</strong></div><div className="meter"><i style={{ width: `${percent}%` }}/></div><small>{percent}% of {max.toFixed(1)} GiB{loading ? ` · Loading model` : ""}</small></div>;
+  }
+  return <LoadingModelMemoryMetric progress={progress}/>;
+}
+
 function NoteAiModelMemoryMetric({ allocatedMiB }: { allocatedMiB: number }) {
   const capacityGiB = 121.6;
   const allocatedGiB = allocatedMiB / 1024;
@@ -254,7 +313,18 @@ function NoteAiModelMemoryMetric({ allocatedMiB }: { allocatedMiB: number }) {
 }
 
 function ModelTransitionTelemetry({ status }: { status: NonNullable<Workload["runtime_status"]> }) {
-  const transition = status.model_transition;
+  const incoming = status.model_transition;
+  const [transition, setTransition] = useState(incoming);
+  const clearTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (incoming?.status === "running" || incoming?.error?.reason) {
+      if (clearTimer.current) window.clearTimeout(clearTimer.current);
+      clearTimer.current = window.setTimeout(() => setTransition(incoming), 0);
+      return;
+    }
+    clearTimer.current = window.setTimeout(() => setTransition(incoming), 1800);
+    return () => { if (clearTimer.current) window.clearTimeout(clearTimer.current); };
+  }, [incoming]);
   const running = transition?.status === "running";
   if (!running && !transition?.error?.reason) return null;
   const progress = Math.max(0, Math.min(100, transition?.progressPercent ?? 0));
@@ -289,19 +359,27 @@ function loadingServiceStates(status: NonNullable<Workload["runtime_status"]>) {
 function formatMilliseconds(value?: number) { return Number.isFinite(value) ? formatDuration(Math.max(0, Math.round(Number(value) / 1000))) : "—"; }
 
 
-function WorkloadFooter({ item, showLifecycle }: { item: Workload; showLifecycle: boolean }) {
+function WorkloadFooter({ item, showLifecycle, showEndpoint }: { item: Workload; showLifecycle: boolean; showEndpoint: boolean }) {
   const endpoint = item.browser_url && item.browser_url !== "#" ? item.browser_url : "Unavailable";
   const residency = item.model_residency
     ? lifecycleLabel(item.model_residency, "residency")
     : item.shared_services?.length ? "Warm / Shared (inferred)" : "Unknown";
   return <footer className="workload-telemetry" aria-live="polite">
-    <span><small>Launch estimate</small><strong>~{formatDuration(item.expected_cold_load_seconds)}</strong></span>
-    <span><small>Endpoint HTTP</small><strong title={endpoint}>{endpoint}</strong></span>
+    <span><small>Launch estimate</small><strong>~{formatDuration(resourceLaunchEstimate(item))}</strong></span>
+    {showEndpoint && <span><small>Endpoint HTTP</small><strong title={endpoint}>{endpoint}</strong></span>}
     {showLifecycle && <>
       <span className="lifecycle-detail"><small>Model resident status</small><strong>{residency}</strong></span>
       <span className="lifecycle-detail"><small>Idle retention</small><strong>Release pending confirmation</strong></span>
     </>}
   </footer>;
+}
+
+function resourceLaunchEstimate(item: Workload) {
+  const modelText = item.model_names.join(" ").toLowerCase();
+  const sizes = [...modelText.matchAll(/(\d+(?:\.\d+)?)\s*b/g)].map(match => Number(match[1]));
+  const defaultModelSize = sizes[0] ?? 0;
+  const profileEstimate = defaultModelSize >= 100 ? 900 : defaultModelSize >= 30 ? 600 : defaultModelSize >= 20 ? 420 : defaultModelSize > 0 ? 240 : 90;
+  return Math.min(item.expected_cold_load_seconds, profileEstimate);
 }
 
 function lifecycleLabel(value: Workload["model_residency"] | Workload["idle_retention"], kind: "residency" | "retention") {

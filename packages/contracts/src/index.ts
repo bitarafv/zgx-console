@@ -9,6 +9,7 @@ export type ModelTransition = {
 };
 export type WorkloadRuntimeStatus = {
   ready?: boolean; model_awake?: boolean; model_name?: string | null; active_model?: string | null;
+  models?: string[];
   model_transition?: ModelTransition | null; containers?: Record<string, string>;
   gpu_compute_allocation_mib?: number | null; active_model_allocation_mib?: number | null;
   gpu?: ModelTransition["gpu"];

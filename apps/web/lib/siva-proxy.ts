@@ -22,9 +22,6 @@ export function allowedSivaMethod(method: string, path: string): boolean {
 export function rewriteSivaHtml(source: string): string {
   return source
     .replace(/(["'])\/api\//g, "$1/admin/siva/api/")
-    .replace(/(["'])\/launch\//g, "$1/admin/siva/launch/")
-    .replace(
-      '<a href="${x.interactive_terminal?.path||x.browser_url}">Open application</a>',
-      '<a href="${x.interactive_terminal?.path||x.browser_url}" target="_blank" rel="noopener">Open application</a>',
-    );
+    .replace(/(["\x27])\/launch\//g, "$1/admin/siva/launch/")
+    .replace(/\${x\.interactive_terminal\?\.path\|\|x\.browser_url}/g, "${x.interactive_terminal?.path||(()=>{const u=new URL(x.browser_url);u.searchParams.set(\"demo\",\"false\");return u.toString()})()}");
 }
