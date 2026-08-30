@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "availability": [
+    {
+      "id": "efe931af-781e-4ab1-9c2e-1428564966d6",
+      "start": "2026-08-27T19:27:00.000Z",
+      "end": "2026-08-27T22:27:00.000Z"
+    },
+    {
+      "id": "9277c196-95fe-4f9e-9420-afdf6451cb47",
+      "start": "2026-08-27T21:27:00.000Z",
+      "end": "2026-08-27T23:27:00.000Z"
+    },
+    {
+      "id": "f65e9259-978d-4ea9-a622-f730255b1083",
+      "start": "2026-08-28T01:19:00.000Z",
+      "end": "2026-08-28T03:19:00.000Z"
+    },
+    {
+      "id": "8e48cfb3-44be-4daa-bc4f-494bfe1c1796",
+      "start": "2026-08-28T11:35:00.000Z",
+      "end": "2026-08-28T13:35:00.000Z"
+    },
+    {
+      "id": "2de66e56-c92e-48c9-8e98-e42aa951dad8",
+      "start": "2026-08-28T13:19:00.000Z",
+      "end": "2026-08-28T15:19:00.000Z"
+    },
+    {
+      "id": "a2a708f3-b739-4b97-ad20-9de123c239f6",
+      "start": "2026-08-29T02:49:00.000Z",
+      "end": "2026-08-29T03:50:00.000Z"
+    },
+    {
+      "id": "ff59fd4b-1475-47cf-86f3-83626f4e1da2",
+      "start": "2026-08-29T06:25:00.000Z",
+      "end": "2026-08-29T10:25:00.000Z",
+      "recurrence": {
+        "frequency": "daily",
+        "daysOfWeek": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "until": "2026-09-06T03:59:59.000Z",
+        "timeZone": "America/New_York"
+      }
+    },
+    {
+      "id": "2b59adb7-9cd2-4215-95c1-032cb14f9994",
+      "start": "2026-08-29T10:32:00.000Z",
+      "end": "2026-08-29T12:32:00.000Z"
+    }
+  ],
+  "blackouts": [
+    {
+      "id": "slot-block:ab0ea453-c6c4-4869-afd4-8e3978dc2131",
+      "start": "2026-08-29T03:04:00.000Z",
+      "end": "2026-08-29T03:19:00.000Z",
+      "label": "Admin blocked slot"
+    }
+  ],
+  "bookings": [
+    {
+      "id": "511ea9e9-ccda-47be-82e1-b4e882f68690",
+      "name": "Nakheir",
+      "email": "bitarafv@yahoo.com",
+      "workloadId": "noteai",
+      "workloadName": "Doctor NoteAI",
+      "start": "2026-08-29T03:19:00.000Z",
+      "end": "2026-08-29T03:34:00.000Z",
+      "blockedUntil": "2026-08-29T03:49:00.000Z",
+      "timezone": "America/New_York",
+      "status": "approved",
+      "createdAt": "2026-08-29T01:51:49.231Z",
+      "updatedAt": "2026-08-29T03:49:04.109Z",
+      "approvalEmailStatus": "sent",
+      "approvalEmailSentAt": "2026-08-29T01:52:23.832Z",
+      "approvalMessageId": "<zgx-1fd20242-2654-472c-b6d0-f9edb6672da2@bncvc.com>",
+      "messages": [
+        {
+          "id": "c792fd13-0354-493e-9c33-70aa9d5b7b31",
+          "direction": "outbound",
+          "messageId": "<zgx-1fd20242-2654-472c-b6d0-f9edb6672da2@bncvc.com>",
+          "sender": "zgxconsole@bncvc.com",
+          "recipient": "bitarafv@yahoo.com",
+          "subject": "Your ZGX demo access is confirmed",
+          "text": "Welcome Nakheir,\n\nYour full interactive access to Doctor NoteAI, powered by our live, fully loaded AI model, is confirmed.\n\nYour time: Friday, August 28, 2026 at 11:19 PM–11:34 PM (America/New_York)\nUTC: Saturday, August 29, 2026 at 3:19 AM–3:34 AM\nAccess duration: 15 minutes\n\nOpen your private timed access link:\nhttps://zgxconsole.bncvc.com/booking/access?token=eyJwdXJwb3NlIjoiYm9va2luZy1hY2Nlc3MiLCJpZCI6IjUxMWVhOWU5LWNjZGEtNDdiZS04MmUxLWI0ZTg4MmY2ODY5MCIsImV4cGlyZXMiOjE3ODgwNjA4NDAwMDB9.y6KSKiBTR7xeEPz3WF4sdWYFSRIHk3-57NJzueI1b1w\n\nBefore the window, the link will show the confirmed time. During the exact window, it will connect you to the active application. Reply directly to this email with any questions.\n\nZGX Console\nZGX booking reference: 511ea9e9-ccda-47be-82e1-b4e882f68690",
+          "createdAt": "2026-08-29T01:52:23.832Z",
+          "readAt": "2026-08-29T01:52:23.832Z"
+        }
+      ],
+      "launchedAt": "2026-08-29T03:04:09.032Z",
+      "stoppedAt": "2026-08-29T03:49:04.109Z"
+    },
+    {
+      "id": "5b02fa3e-124f-4903-be60-c8886549dc24",
+      "name": "Vahid",
+      "email": "bitarafv@yahoo.com",
+      "workloadId": "noteai",
+      "workloadName": "Doctor NoteAI",
+      "start": "2026-08-30T06:25:00.000Z",
+      "end": "2026-08-30T06:40:00.000Z",
+      "blockedUntil": "2026-08-30T06:55:00.000Z",
+      "timezone": "America/New_York",
+      "status": "approved",
+      "createdAt": "2026-08-29T10:30:44.836Z",
+      "updatedAt": "2026-08-29T10:31:11.177Z",
+      "approvalEmailStatus": "sent",
+      "approvalEmailSentAt": "2026-08-29T10:31:11.177Z",
+      "approvalMessageId": "<zgx-106687d8-20f0-4f4f-9b23-0e2d6dc630b3@bncvc.com>",
+      "messages": [
+        {
+          "id": "15483439-8051-43da-901e-56fc3852c1e1",
+          "direction": "outbound",
+          "messageId": "<zgx-106687d8-20f0-4f4f-9b23-0e2d6dc630b3@bncvc.com>",
+          "sender": "zgxconsole@bncvc.com",
+          "recipient": "bitarafv@yahoo.com",
+          "subject": "Your ZGX demo access is confirmed",
+          "text": "Welcome Vahid,\n\nYour full interactive access to Doctor NoteAI, powered by our live, fully loaded AI model, is confirmed.\n\nYour time: Sunday, August 30, 2026 at 2:25 AM–2:40 AM (America/New_York)\nUTC: Sunday, August 30, 2026 at 6:25 AM–6:40 AM\nAccess duration: 15 minutes\n\nOpen your private timed access link:\nhttps://zgxconsole.bncvc.com/booking/access?token=eyJwdXJwb3NlIjoiYm9va2luZy1hY2Nlc3MiLCJpZCI6IjViMDJmYTNlLTEyNGYtNDkwMy1iZTYwLWM4ODg2NTQ5ZGMyNCIsImV4cGlyZXMiOjE3ODgxNTg0MDAwMDB9.FV6kcatXE_dyfdKS83qI1hpAzPdp6IyE4Kdn1XXPA5E\n\nBefore the window, the link will show the confirmed time. During the exact window, it will connect you to the active application. Reply directly to this email with any questions.\n\nZGX Console\nZGX booking reference: 5b02fa3e-124f-4903-be60-c8886549dc24",
+          "createdAt": "2026-08-29T10:31:11.177Z",
+          "readAt": "2026-08-29T10:31:11.177Z"
+        }
+      ]
+    },
+    {
+      "id": "8140d208-f816-40a9-84a9-0fe4162e55ed",
+      "name": "Haha",
+      "email": "bitarafv@yahoo.com",
+      "workloadId": "noteai",
+      "workloadName": "Doctor NoteAI",
+      "start": "2026-08-29T10:47:00.000Z",
+      "end": "2026-08-29T11:02:00.000Z",
+      "blockedUntil": "2026-08-29T11:17:00.000Z",
+      "timezone": "America/New_York",
+      "status": "approved",
+      "createdAt": "2026-08-29T10:33:13.435Z",
+      "updatedAt": "2026-08-29T11:20:37.942Z",
+      "approvalEmailStatus": "sent",
+      "approvalEmailSentAt": "2026-08-29T10:33:33.749Z",
+      "approvalMessageId": "<zgx-b3bd56f4-ca51-4515-a12e-588ac7c6cd3c@bncvc.com>",
+      "messages": [
+        {
+          "id": "93da0bfe-4926-4e56-a2aa-1e59ed844b8d",
+          "direction": "outbound",
+          "messageId": "<zgx-b3bd56f4-ca51-4515-a12e-588ac7c6cd3c@bncvc.com>",
+          "sender": "zgxconsole@bncvc.com",
+          "recipient": "bitarafv@yahoo.com",
+          "subject": "Your ZGX demo access is confirmed",
+          "text": "Welcome Haha,\n\nYour full interactive access to Doctor NoteAI, powered by our live, fully loaded AI model, is confirmed.\n\nYour time: Saturday, August 29, 2026 at 6:47 AM–7:02 AM (America/New_York)\nUTC: Saturday, August 29, 2026 at 10:47 AM–11:02 AM\nAccess duration: 15 minutes\n\nOpen your private timed access link:\nhttps://zgxconsole.bncvc.com/booking/access?token=eyJwdXJwb3NlIjoiYm9va2luZy1hY2Nlc3MiLCJpZCI6IjgxNDBkMjA4LWY4MTYtNDBhOS04NGE5LTBmZTQxNjJlNTVlZCIsImV4cGlyZXMiOjE3ODgwODc3MjAwMDB9.BmyQcBXW7zSNxzxyrTuXuL8OsJovb29OTZiBkzSQ8OM\n\nBefore the window, the link will show the confirmed time. During the exact window, it will connect you to the active application. Reply directly to this email with any questions.\n\nZGX Console\nZGX booking reference: 8140d208-f816-40a9-84a9-0fe4162e55ed",
+          "createdAt": "2026-08-29T10:33:33.749Z",
+          "readAt": "2026-08-29T10:33:33.749Z"
+        }
+      ],
+      "launchedAt": "2026-08-29T10:33:37.943Z",
+      "stoppedAt": "2026-08-29T11:20:37.942Z"
+    },
+    {
+      "id": "82eec2d6-1bd1-426a-af78-b332a32545cc",
+      "name": "Fgh",
+      "email": "bitarafv@yahoo.com",
+      "workloadId": "noteai",
+      "workloadName": "Doctor NoteAI",
+      "start": "2026-09-03T08:25:00.000Z",
+      "end": "2026-09-03T08:40:00.000Z",
+      "blockedUntil": "2026-09-03T08:55:00.000Z",
+      "timezone": "America/New_York",
+      "status": "pending",
+      "createdAt": "2026-08-29T10:46:00.950Z",
+      "updatedAt": "2026-08-29T10:46:00.950Z"
+    },
+    {
+      "id": "8bfbe0d2-175b-483c-a6d7-462771cbd971",
+      "name": "boro",
+      "email": "bitarafv@yahoo.com",
+      "workloadId": "noteai",
+      "workloadName": "Doctor NoteAI",
+      "start": "2026-08-30T07:10:00.000Z",
+      "end": "2026-08-30T07:25:00.000Z",
+      "blockedUntil": "2026-08-30T07:40:00.000Z",
+      "timezone": "America/New_York",
+      "status": "pending",
+      "createdAt": "2026-08-30T02:10:51.247Z",
+      "updatedAt": "2026-08-30T02:10:51.247Z"
+    }
+  ],
+  "holds": [],
+  "mailbox": {
+    "uidValidity": "1787921713",
+    "lastUid": 1,
+    "lastCheckedAt": "2026-08-30T03:39:41.210Z"
+  }
+}

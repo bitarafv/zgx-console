@@ -26,18 +26,32 @@ describe("Doctor NoteAI model card", () => {
 
   it("shows Allocated Model VRAM immediately while any workload launches", () => {
     expect(source).toContain('[item.id]: "launching"');
-    expect(source).toContain("<LoadingModelMemoryMetric progress={loadingProgress}/>");
+    expect(source).toContain("<LoadingModelMemoryMetric progress={loadingProgress} value={workloadMemory}/>");
     expect(source).toContain('aria-busy="true"');
     expect(source).toContain('"Starting model load…"');
+    expect(source).toContain("resources?.workload_model_memory?.[item.id]");
+    expect(source).toContain("current.toFixed(1)");
+    expect(source).toContain("item.active && item.runtime_status?.ready !== true");
   });
 
-  it("disables app opening in Guest View", () => {
-    expect(source).toContain('item.active && usableEndpoint(item.browser_url) && (admin');
-    expect(source).toContain('<button type="button" className="workload-open" disabled title="Admin access required">Open the app</button>');
+  it("does not offer production access booking in Guest View cards", () => {
+    expect(source).toContain('workloadOpenControl(item, admin)');
+    expect(source).not.toContain('setBookingWorkload');
+    expect(source).not.toContain('Request production access');
   });
 
   it("keeps the VRAM help control as a small transparent question mark", () => {
     expect(styles).toContain(".workloads .workload-memory button.metric-help{all:unset;position:relative;display:grid;place-items:center;width:20px;height:20px");
     expect(styles).toContain(".workload-memory .meter{margin-top:14px}");
   });
+  it("launches Dossier's default 20B model and preserves its configured demo path", () => {
+    expect(source).toContain('item.id === "dossierai" ? "openai/gpt-oss-20b"');
+    expect(source).toContain('target_workload: item.id');
+    expect(source).toContain('target_models: [launchModel]');
+    expect(source).not.toContain("target_model: launchModel");
+    expect(source).toContain("item.expected_cold_load_seconds + 120");
+    expect(source).not.toContain('url.pathname = "/"');
+    expect(source).toContain("return demoModeUrl(configured)");
+  });
+
 });

@@ -1,4 +1,4 @@
-# ZGX Demo Display
+# ZGX Experiences
 
 A presentation-ready, configuration-driven showcase of simulated AI software experiences across commercial and public-sector industries. It is designed for customer discovery conversations and does **not** run AI models or send data to external services.
 

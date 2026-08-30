@@ -21,10 +21,18 @@ function visitorId(){
  try{const key="zgx-analytics-visitor";let id=localStorage.getItem(key);if(!id){id=crypto.randomUUID();localStorage.setItem(key,id)}return id}catch{return undefined}
 }
 
+function sessionId(){
+ try{
+  const idKey="zgx-analytics-session",touchKey="zgx-analytics-session-touch",now=Date.now(),last=Number(sessionStorage.getItem(touchKey)||0);let id=sessionStorage.getItem(idKey);
+  if(!id||!last||now-last>30*60*1000){id=crypto.randomUUID();sessionStorage.setItem(idKey,id)}
+  sessionStorage.setItem(touchKey,String(now));return id;
+ }catch{return undefined}
+}
+
 function emit(event:string,tab:string,dwellMs?:number,interaction?:{category:string;item:string;context?:string}){
  if(disabled())return;
  if(location.pathname==="/admin"||location.pathname.startsWith("/admin/"))return;
- const payload=JSON.stringify({event,tab,dwellMs,visitorId:visitorId(),path:location.pathname+location.hash,referrer:document.referrer,...interaction});
+ const payload=JSON.stringify({event,tab,dwellMs,visitorId:visitorId(),sessionId:sessionId(),path:location.pathname+location.hash,referrer:document.referrer,...interaction});
  if(event==="tab_dwell"&&navigator.sendBeacon){navigator.sendBeacon(telemetryPath,new Blob([payload],{type:"text/plain"}));return}
  void fetch(telemetryPath,{method:"POST",headers:{"content-type":"text/plain"},body:payload,keepalive:true,credentials:"omit"}).catch(()=>{});
 }
@@ -35,7 +43,7 @@ export function trackZgxInteraction(tab:string,category:string,item:string,conte
 
 export function useZgxTelemetry(tab:string,enabled=true){
  useEffect(()=>{if(enabled)applyPreference()},[enabled]);
- useEffect(()=>{if(!enabled)return;try{if(!sessionStorage.getItem("zgx-analytics-page-view")){sessionStorage.setItem("zgx-analytics-page-view","1");emit("page_view",tab)}}catch{emit("page_view",tab)}},[tab,enabled]);
+ useEffect(()=>{if(!enabled)return;try{const current=sessionId();if(sessionStorage.getItem("zgx-analytics-page-view")!==current){sessionStorage.setItem("zgx-analytics-page-view",current||"1");emit("page_view",tab)}}catch{emit("page_view",tab)}},[tab,enabled]);
  useEffect(()=>{if(!enabled)return;const started=Date.now();emit("tab_view",tab);return()=>emit("tab_dwell",tab,Date.now()-started)},[tab,enabled]);
  useEffect(()=>{if(!enabled)return;const timer=window.setInterval(()=>emit("heartbeat",tab),60000);return()=>window.clearInterval(timer)},[tab,enabled]);
 }

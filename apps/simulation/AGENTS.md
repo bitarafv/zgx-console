@@ -1,4 +1,4 @@
-# ZGX Demo Display Agent Guide
+# ZGX Experiences Agent Guide
 
 ## Parallel simulation ownership
 

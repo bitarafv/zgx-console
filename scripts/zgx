@@ -58,8 +58,12 @@ wait_siva(){
     if curl -fsS --max-time 2 http://127.0.0.1:18000/api/workloads >/dev/null 2>&1; then return; fi
     sleep .5
   done
-  echo "Siva is unavailable on 127.0.0.1:18000; it was not modified." >&2
-  exit 1
+  if port_busy 18000; then
+    echo "Siva is listening on 127.0.0.1:18000, but its workload API timed out; console services will continue without modifying it." >&2
+  else
+    echo "Siva is not listening on 127.0.0.1:18000; console services will continue without modifying it." >&2
+  fi
+  return 1
 }
 
 wait_bridge(){
@@ -79,8 +83,8 @@ validate(){
 }
 
 build_all(){
-  npm --prefix "$ROOT/apps/web" run build
-  NEXT_PUBLIC_BASE_PATH=/simulation npm --prefix "$ROOT/apps/simulation" run build
+  npm --prefix "$ROOT/apps/web" run build &&
+  NEXT_PUBLIC_BASE_PATH=/simulation npm --prefix "$ROOT/apps/simulation" run build &&
   npm --prefix "$ROOT/apps/node-bridge" run build
 }
 
@@ -111,7 +115,7 @@ start(){
   else
     systemctl --user start "$CONSOLE_SERVICE"
   fi
-  wait_siva
+  wait_siva || true
   systemctl --user enable --now "$BRIDGE_SERVICE" >/dev/null
   wait_bridge
   status
@@ -131,7 +135,7 @@ restart(){
   need_secrets
   need_builds
   install_units
-  wait_siva
+  wait_siva || true
   systemctl --user restart "$CONSOLE_SERVICE"
   systemctl --user enable "$BRIDGE_SERVICE" >/dev/null
   systemctl --user restart "$BRIDGE_SERVICE"
@@ -150,14 +154,27 @@ shutdown(){
 update(){
   load_env
   need_secrets
-  local bridge_was_active=false
+  local bridge_was_active=false backup_root
   if service_active "$BRIDGE_SERVICE" || port_busy "$BRIDGE_PORT"; then bridge_was_active=true; fi
   validate
-  build_all
+  backup_root=$(mktemp -d)
+  cp -a "$ROOT/apps/web/.next" "$backup_root/web-next"
+  cp -a "$ROOT/apps/simulation/.next" "$backup_root/simulation-next"
+  systemctl --user stop "$CONSOLE_SERVICE"
+  if ! build_all; then
+    rm -rf "$ROOT/apps/web/.next" "$ROOT/apps/simulation/.next"
+    mv "$backup_root/web-next" "$ROOT/apps/web/.next"
+    mv "$backup_root/simulation-next" "$ROOT/apps/simulation/.next"
+    rmdir "$backup_root"
+    systemctl --user start "$CONSOLE_SERVICE"
+    echo "Build failed; the previous console build was restored." >&2
+    return 1
+  fi
+  rm -rf "$backup_root"
   install_units
   systemctl --user restart "$CONSOLE_SERVICE"
   if [[ "$bridge_was_active" == true ]]; then
-    wait_siva
+    wait_siva || true
     systemctl --user enable "$BRIDGE_SERVICE" >/dev/null
     systemctl --user restart "$BRIDGE_SERVICE"
     wait_bridge
@@ -191,7 +208,7 @@ status(){
   fi
   status_line "live bridge" "$BRIDGE_SERVICE" "$BRIDGE_PORT"
   if systemctl is-active --quiet cloudflared.service 2>/dev/null; then echo "tunnel: active (system service)"; else echo "tunnel: inactive"; fi
-  if curl -fsS --max-time 2 http://127.0.0.1:18000/api/workloads >/dev/null 2>&1; then echo "siva: reachable (unmanaged)"; else echo "siva: unavailable"; fi
+  if curl -fsS --max-time 2 http://127.0.0.1:18000/api/workloads >/dev/null 2>&1; then echo "siva: reachable (unmanaged)"; elif port_busy 18000; then echo "siva: API timed out"; else echo "siva: not listening"; fi
   echo "local: http://localhost:$WEB_PORT"
   echo "public: https://${ZGX_PUBLIC_HOSTNAME:-zgxconsole.bncvc.com}"
 }

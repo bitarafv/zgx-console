@@ -3,19 +3,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleHelp } from "lucide-react";
 import { demoModeUrl, productionModeUrl } from "@/lib/demo-mode";
-import { mockResources, workloads as fallbackWorkloads } from "@/lib/mock-data";
+import { workloadOpenControl } from "@/lib/workload-open";
+import { TokenSavingsMeter } from "./TokenSavingsMeter";
+import { DemoBookingAdmin } from "./DemoBookingAdmin";
+import type { AdminBookingData } from "@/lib/bookings-types";
 import type { AllocatedModelMemory, Resources, Workload } from "@/lib/types";
 
 const MODEL_MEMORY_HELP = "Displays pinned memory reserved by loaded model weights and context buffers prior to active inference.";
 type LifecycleState = "launching" | "stopping";
+const EMPTY_WORKLOADS: Workload[] = [];
 
-export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
-  const [resources, setResources] = useState<Resources | null>(() => adminView ? null : mockResources());
-  const [workloads, setWorkloads] = useState<Workload[]>(adminView ? [] : fallbackWorkloads);
+export function NodeDashboard({ adminView = false, adminBookingData }: { adminView?: boolean; adminBookingData?: AdminBookingData }) {
+  const [resources, setResources] = useState<Resources | null>(null);
+  const [workloads, setWorkloads] = useState<Workload[] | null>(null);
+  const [resourceError, setResourceError] = useState(false);
+  const [workloadError, setWorkloadError] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
   const [lifecycle, setLifecycle] = useState<Record<string, LifecycleState>>({});
   const [launchSort, setLaunchSort] = useState<"fastest" | "slowest">("fastest");
   const [industryFilter, setIndustryFilter] = useState("all");
+  const actionErrorRef = useRef("");
+  const transitionActiveRef = useRef(false);
 
   const reconcileLifecycle = useCallback((items: Workload[]) => {
     setLifecycle(current => {
@@ -33,44 +42,76 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
   }, []);
 
   const modelTransitionActive = Object.values(lifecycle).includes("launching")
-    || workloads.some(item => item.runtime_status?.model_transition?.status === "running");
-  const load = useCallback(async () => {
+    || (workloads ?? []).some(item => item.active && item.runtime_status?.ready !== true)
+    || (workloads ?? []).some(item => item.runtime_status?.model_transition?.status === "running");
+  useEffect(() => { transitionActiveRef.current = modelTransitionActive; }, [modelTransitionActive]);
+  const load = useCallback(async (signal: AbortSignal) => {
     const [resourceResult, workloadResult] = await Promise.allSettled([
-      fetchJson<Resources>("/api/resources"),
-      fetchJson<Workload[]>("/api/workloads"),
+      fetchJson<Resources>("/api/resources", signal),
+      fetchJson<Workload[]>("/api/workloads", signal),
     ]);
+
+    if (signal.aborted) return;
 
     if (resourceResult.status === "fulfilled") {
       setResources(resourceResult.value);
-    } else if (!adminView) {
-      setResources(mockResources());
+      setResourceError(false);
+    } else {
+      setResourceError(true);
     }
 
     if (workloadResult.status === "fulfilled") {
       setWorkloads(workloadResult.value);
+      setWorkloadError(false);
       reconcileLifecycle(workloadResult.value);
-    } else if (!adminView) {
-      setWorkloads(fallbackWorkloads);
+    } else {
+      setWorkloadError(true);
     }
-  }, [adminView, reconcileLifecycle]);
+  }, [reconcileLifecycle]);
 
   useEffect(() => {
-    let interval: number | undefined;
-    const start = () => {
-      void load();
-      interval = window.setInterval(() => { if (!document.hidden) void load(); }, modelTransitionActive ? 1000 : 5000);
+    let stopped = false;
+    let timer: number | undefined;
+    let inFlight = false;
+    const controller = new AbortController();
+    const schedule = () => {
+      if (stopped) return;
+      timer = window.setTimeout(run, transitionActiveRef.current ? 1000 : 5000);
     };
-    const visibility = () => { if (!document.hidden) void load(); };
-    start();
+    const run = async () => {
+      if (stopped || inFlight) return;
+      if (document.hidden) {
+        schedule();
+        return;
+      }
+      inFlight = true;
+      try {
+        await load(controller.signal);
+      } finally {
+        inFlight = false;
+        schedule();
+      }
+    };
+    const visibility = () => {
+      if (document.hidden || inFlight) return;
+      if (timer) window.clearTimeout(timer);
+      void run();
+    };
+    void run();
     document.addEventListener("visibilitychange", visibility);
     return () => {
-      if (interval) clearInterval(interval);
+      stopped = true;
+      controller.abort();
+      if (timer) window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [load, modelTransitionActive]);
+  }, [load, refreshKey]);
+
+  const refresh = useCallback(() => setRefreshKey(value => value + 1), []);
 
   async function act(path: string, body: object) {
     setError("");
+    actionErrorRef.current = "";
     const response = await fetch(path, {
       method: "POST",
       credentials: "same-origin",
@@ -78,7 +119,8 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
       body: JSON.stringify(body),
     });
     if (!response.ok) {
-      setError(await actionError(response));
+      actionErrorRef.current = await actionError(response);
+      setError(actionErrorRef.current);
       return null;
     }
     const contentType = response.headers.get("content-type") ?? "";
@@ -91,7 +133,7 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
       setError("The node returned an invalid action response.");
       return null;
     }
-    void load();
+    refresh();
     return result;
   }
 
@@ -105,47 +147,73 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
   async function launch(item: Workload) {
     setLifecycle(current => ({ ...current, [item.id]: "launching" }));
     const progressTab = window.open("/admin/siva/launch/pending", "_blank");
-    const result = await act("/admin/siva/api/transitions", { target_workload: item.id });
+    const launchModel = launchDisplayModel(item);
+    const result = await act("/admin/siva/api/transitions", {
+      target_workload: item.id,
+      ...(item.id === "dossierai" && launchModel ? { target_models: [launchModel] } : {}),
+    });
     const transitionId = typeof result?.transition_id === "string" ? result.transition_id : null;
     if (!transitionId) {
       setLifecycle(current => { const next = { ...current }; delete next[item.id]; return next; });
-      progressTab?.close();
+      if (progressTab) {
+        const detail = actionErrorRef.current || "Siva did not return a launch transition. Try again.";
+        progressTab.location.assign(`/admin/siva/launch/pending?workload=${encodeURIComponent(item.id)}&error=${encodeURIComponent(detail)}`);
+      }
       if (result) setError("Siva did not return a launch transition. Try again.");
       return;
     }
-    const progressUrl = `/admin/siva/launch/${encodeURIComponent(transitionId)}`;
+    const progressUrl = `/admin/siva/launch/${encodeURIComponent(transitionId)}${launchModel ? `?model=${encodeURIComponent(launchModel)}` : ""}`;
     if (progressTab) progressTab.location.assign(progressUrl);
     else setError(`Launch started, but the progress tab was blocked. Allow pop-ups and open ${progressUrl}.`);
+    const readinessAttempts = Math.max(60, Math.min(1200, item.expected_cold_load_seconds + 120));
+    for (let attempt = 0; attempt < readinessAttempts; attempt += 1) {
+      await new Promise(resolve => window.setTimeout(resolve, 1000));
+      const latest = await fetchJson<Workload[]>("/api/workloads").catch(() => null);
+      const launched = latest?.find(workload => workload.id === item.id);
+      if (launched?.active && launched.runtime_status?.ready) {
+        refresh();
+        return;
+      }
+    }
+    setLifecycle(current => { const next = { ...current }; delete next[item.id]; return next; });
+    setError(`${item.name} did not become ready within the expected launch window. Check the transition page for details.`);
   }
 
   const admin = adminView;
   const help = true;
   const allocatedMemory = resources ? modelMemory(resources) : undefined;
-  const activeWorkloadId = workloads.find(item => item.active)?.id ?? null;
+  const workloadItems = workloads ?? EMPTY_WORKLOADS;
+  const activeWorkloadId = workloadItems.find(item => item.active)?.id ?? null;
   const inferenceSpeed = resources ? averagedInferenceSpeed(resources, Boolean(activeWorkloadId)) : null;
-  const industries = useMemo(() => [...new Set(workloads.flatMap(item => item.industry_verticals ?? []))].sort(), [workloads]);
-  const sortedWorkloads = useMemo(() => workloads
+  const industries = useMemo(() => [...new Set(workloadItems.flatMap(item => item.industry_verticals ?? []))].sort(), [workloadItems]);
+  const sortedWorkloads = useMemo(() => workloadItems
     .filter(item => industryFilter === "all" || item.industry_verticals?.includes(industryFilter))
     .sort((left, right) => {
       const delta = resourceLaunchEstimate(left) - resourceLaunchEstimate(right);
       return (launchSort === "fastest" ? delta : -delta) || left.name.localeCompare(right.name);
-    }), [workloads, launchSort, industryFilter]);
-  const runningModelTransition = workloads.find(item => item.runtime_status?.model_transition?.status === "running")?.runtime_status?.model_transition;
+    }), [workloadItems, launchSort, industryFilter]);
+  const runningModelTransition = workloadItems.find(item => item.runtime_status?.model_transition?.status === "running")?.runtime_status?.model_transition;
   return <>
     <Hero role={admin ? "Admin View" : "Guest View"}/>
     {error && <div className="alert">{error}</div>}
+    {(resourceError || workloadError) && Boolean(resources || workloads) && <div className="dashboard-stale" role="status">Live node data is temporarily unavailable. Showing the last successful update.</div>}
     <div className="metrics">
       {resources ? <>
         <Metric label="Memory bandwidth" current={resources.memory_bandwidth.current_gbps} max={resources.memory_bandwidth.maximum_gbps} unit="GB/s" help={help ? "Shows how quickly data can move through unified memory, which can limit model execution speed." : undefined}/>
         <Metric label="Tensor active" current={resources.tensor_core.active_percent} max={100} unit="%" help={help ? "Shows how much of the AI accelerator is busy, helping identify available compute capacity." : undefined}/>
         <InferenceMetric value={inferenceSpeed} active={Boolean(activeWorkloadId)} peak={resources.inference_speed.peak} help={help ? "Measures generated tokens per second, a practical indicator of response throughput." : undefined}/>
         <Metric label="SoC power" current={resources.soc_power.current_watts} max={resources.soc_power.limit_watts} unit="W" help={help ? "Compares current system-on-chip power use with its limit to show efficiency and thermal headroom." : undefined}/>
-      </> : <p className="muted">Connecting to telemetry…</p>}
+      </> : resourceError ? <DashboardUnavailable subject="telemetry" onRetry={refresh}/> : <DashboardLoading label="Connecting to telemetry…"/>}
     </div>
     <HardwareContext resources={resources}/>
     <div className="section-head"><div><p className="eyebrow">APPLICATION CONTROL</p><h2>Installed Applications</h2></div><div className="workload-section-tools"><p>Live node status and installed applications.</p><label>Sort<select aria-label="Sort by launch estimate" value={launchSort} onChange={event => setLaunchSort(event.target.value as "fastest" | "slowest")}><option value="fastest">Launch estimate: fastest</option><option value="slowest">Launch estimate: slowest</option></select></label><label>Filter<select aria-label="Filter view by industry" value={industryFilter} onChange={event => setIndustryFilter(event.target.value)}><option value="all">All industries</option>{industries.map(value => <option key={value} value={value}>{value}</option>)}</select></label></div></div>
-    <div className="workloads">{sortedWorkloads.map(item => {
+    {workloads === null
+      ? workloadError
+        ? <DashboardUnavailable subject="installed applications" onRetry={refresh}/>
+        : <DashboardLoading label="Connecting to installed applications…"/>
+      : <div className="workloads">{sortedWorkloads.map(item => {
       const state = lifecycle[item.id];
+      const workloadMemory = resources?.workload_model_memory?.[item.id];
       const activeModelAllocation = item.runtime_status?.active_model_allocation_mib;
       const hasActiveModelAllocation = Number.isFinite(activeModelAllocation) && Number(activeModelAllocation) > 0;
       const launching = state === "launching";
@@ -154,35 +222,51 @@ export function NodeDashboard({ adminView = false }: { adminView?: boolean }) {
         ? item.runtime_status?.model_transition?.progressPercent
         : runningModelTransition?.progressPercent;
       const hermesTelemetry = item.id === "hermes" && (launching || item.active);
-      const showMemory = hermesTelemetry || launching || modelLoading || (item.id === "noteai" && item.active && hasActiveModelAllocation) || (item.id !== "noteai" && item.active && hasAllocatedMemory(allocatedMemory));
+      const showMemory = hermesTelemetry || launching || modelLoading || Boolean(item.active && workloadMemory?.available && workloadMemory.capacity_mib) || (item.id === "noteai" && item.active && hasActiveModelAllocation);
       const demoUrl = workloadDemoUrl(item);
+      const openControl = workloadOpenControl(item, admin);
       return <article key={item.id} className={[item.active || state ? "workload-live" : "", showMemory ? "workload-has-memory" : ""].filter(Boolean).join(" ") || undefined}>
         <div className="workload-content">
           <div className="workload-card-head"><div className="workload-title"><span className={item.active ? "dot active" : "dot"}/><h3>{item.name}</h3></div><div className="industry-tags" aria-label="Industry verticals">{(item.industry_verticals ?? []).map(value => <span className="industry-chip" key={value}>{value}</span>)}</div></div>
           <p>{item.description}</p>
+          <TokenSavingsMeter item={item}/>
           <div className="chips model-tags">{[...item.model_names, ...item.intelligence_services].map(value => <ModelBadge key={value} item={item} value={value}/>)}</div>
+          <BenchmarkComparison workloadId={item.id}/>
           {hermesTelemetry
-            ? <HermesModelMemoryMetric value={allocatedMemory} progress={loadingProgress} loading={launching || modelLoading}/>
-            : launching || modelLoading
-            ? <LoadingModelMemoryMetric progress={loadingProgress}/>
+            ? <HermesModelMemoryMetric value={workloadMemory ?? allocatedMemory} progress={loadingProgress} loading={launching || modelLoading}/>
+            : launching || modelLoading || (item.active && item.runtime_status?.ready !== true)
+            ? <LoadingModelMemoryMetric progress={loadingProgress} value={workloadMemory}/>
             : item.id === "noteai" && item.active && hasActiveModelAllocation
             ? <NoteAiModelMemoryMetric allocatedMiB={Number(activeModelAllocation)}/>
-            : item.id !== "noteai" && item.active && hasAllocatedMemory(allocatedMemory) ? <WorkloadMemoryMetric value={allocatedMemory}/> : null}
+            : item.id !== "noteai" && item.active && hasAllocatedMemory(workloadMemory) ? <WorkloadMemoryMetric value={workloadMemory}/> : null}
           {item.active && item.runtime_status && <ModelTransitionTelemetry status={item.runtime_status}/>}
           <WorkloadFooter item={item} showLifecycle={state === "stopping"} showEndpoint={admin}/>
         </div>
         <div className="workload-actions">
           {demoUrl
-            ? <a className="workload-demo" href={demoUrl} target="_blank" rel="noopener noreferrer">See a demo</a>
+            ? <a className="workload-demo" href={demoUrl} target="_blank" rel="noopener" onClick={event => {
+                event.preventDefault();
+                const url = new URL(demoUrl, window.location.href);
+                url.searchParams.set("zgx_booking_base", window.location.origin);
+                window.open(url.toString(), "_blank", "noopener");
+              }}>See a demo</a>
             : <button type="button" className="workload-demo" disabled title="Demo URL unavailable">See a demo</button>}
-          {item.active && usableEndpoint(item.browser_url) && (admin
-            ? <a className="workload-open" href={productionModeUrl(item.external_browser_url ?? item.browser_url) ?? item.browser_url!} target="_blank" rel="noopener">Open the app</a>
-            : <button type="button" className="workload-open" disabled title="Admin access required">Open the app</button>)}
+          {openControl && <a className="workload-open" href={openControl.href} target="_blank" rel="noopener">{openControl.label}</a>}
           <span className={!admin ? "admin-only-control" : undefined} data-tooltip={!admin ? "Admin Mode Only" : undefined}><button className={item.active ? "workload-stop" : "workload-launch"} disabled={!admin || Boolean(state)} title={admin && state ? "Waiting for model transition" : undefined} onClick={() => item.active ? void stop(item) : void launch(item)}>{state === "launching" ? "Loading…" : state === "stopping" ? "Stopping…" : item.active ? "Stop" : "Launch"}</button></span>
         </div>
       </article>;
-    })}</div>
+    })}</div>}
+    <p className="savings-assumption">* Electricity: $0.15/kWh · Period: 3 years · Rates are configurable assumptions dated April 2026.</p>
+    {admin && <DemoBookingAdmin initialData={adminBookingData}/>}
   </>;
+}
+
+function DashboardLoading({ label }: { label: string }) {
+  return <div className="dashboard-loading" role="status" aria-live="polite"><i aria-hidden="true"/><span>{label}</span></div>;
+}
+
+function DashboardUnavailable({ subject, onRetry }: { subject: string; onRetry: () => void }) {
+  return <div className="dashboard-unavailable" role="alert"><div><strong>Node unavailable</strong><span>Could not load {subject}.</span></div><button type="button" onClick={onRetry}>Retry</button></div>;
 }
 
 function averagedInferenceSpeed(resources: Resources, active: boolean) {
@@ -192,19 +276,16 @@ function averagedInferenceSpeed(resources: Resources, active: boolean) {
   return average > 0 ? average : raw;
 }
 
+function launchDisplayModel(item: Workload) {
+  return item.id === "noteai" ? "Qwen/Qwen3-32B-AWQ" : item.id === "dossierai" ? "openai/gpt-oss-20b" : null;
+}
+
 function workloadDemoUrl(item: Workload) {
-  if (item.id === "dietplan") return "/admin/demo/dietplan";
-  if (item.id === "hermes") return "/admin/demo/hermes";
+  if (item.id === "aml-fraud-agent") return "/demo/aml-fraud-agent";
+  if (item.id === "dietplan") return "/demo/dietplan";
+  if (item.id === "hermes") return "/demo/hermes";
   const configured = item.external_browser_url ?? item.browser_url;
-  if (!configured) return null;
-  if (item.id !== "dossierai") return demoModeUrl(configured);
-  try {
-    const url = new URL(configured);
-    url.pathname = "/";
-    return demoModeUrl(url.toString());
-  } catch {
-    return null;
-  }
+  return demoModeUrl(configured);
 }
 
 function HardwareContext({ resources }: { resources: Resources | null }) {
@@ -218,6 +299,11 @@ function usableEndpoint(value: string | null | undefined) {
   return Boolean(value && value !== "#" && /^https?:\/\//.test(value));
 }
 
+function interactiveTerminalPath(item: Workload): string | null {
+  const path = item.interactive_terminal?.path;
+  return item.id === "hermes" && path === "/terminal/hermes" ? path : null;
+}
+
 async function actionError(response: Response) {
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
@@ -228,8 +314,8 @@ async function actionError(response: Response) {
   return `Action failed (${response.status}).`;
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(path, { cache: "no-store" });
+async function fetchJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(path, { cache: "no-store", signal });
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json() as Promise<T>;
 }
@@ -278,6 +364,18 @@ function ModelBadge({ item, value }: { item: Workload; value: string }) {
   return <span className={`model-badge ${active ? "active" : "inactive"}`}>{name} <b>({active ? "Active" : "non-Active"})</b></span>;
 }
 
+const BENCHMARKS: Record<string, { unquantized: [number, number, number, number]; quantized: [number, number, number, number] }> = {
+  "rag-legal-auditor": { unquantized: [19.8, 1210, 64200, 96.4], quantized: [51.7, 348, 18300, 89.7] },
+  "aml-fraud-agent": { unquantized: [22.4, 1080, 61800, 97.1], quantized: [67.9, 214, 16900, 91.8] },
+  "customer-support-router": { unquantized: [25.1, 890, 58400, 95.2], quantized: [72.6, 162, 15700, 90.9] },
+};
+
+function BenchmarkComparison({ workloadId }: { workloadId: string }) {
+  const benchmark = BENCHMARKS[workloadId];
+  if (!benchmark) return null;
+  return <div className="workload-memory" aria-label="Simulated model benchmark comparison"><div><span className="metric-label">Unquantized</span><strong>{benchmark.unquantized[0]} t/s · {benchmark.unquantized[1]} ms TTFT</strong></div><small>{(benchmark.unquantized[2] / 1024).toFixed(1)} GiB · {benchmark.unquantized[3]}% score</small><div><span className="metric-label">Quantized</span><strong>{benchmark.quantized[0]} t/s · {benchmark.quantized[1]} ms TTFT</strong></div><small>{(benchmark.quantized[2] / 1024).toFixed(1)} GiB · {benchmark.quantized[3]}% score · simulated</small></div>;
+}
+
 function isDossier(item: Workload) {
   return item.id.toLowerCase().includes("dossier") || item.name.toLowerCase().includes("dossier");
 }
@@ -289,7 +387,13 @@ function WorkloadMemoryMetric({ value }: { value: AllocatedModelMemory & { alloc
   return <div className="workload-memory" aria-live="polite"><div><MetricLabel label="Allocated Model VRAM" help={MODEL_MEMORY_HELP}/><strong>{current.toFixed(1)} GiB</strong></div><div className="meter"><i style={{ width: `${percent}%` }}/></div><small>{percent}% of {max.toFixed(1)} GiB</small></div>;
 }
 
-function LoadingModelMemoryMetric({ progress }: { progress?: number }) {
+function LoadingModelMemoryMetric({ progress, value }: { progress?: number; value?: AllocatedModelMemory }) {
+  if (value?.available && value.capacity_mib && value.allocated_mib != null) {
+    const current = value.allocated_mib / 1024;
+    const max = value.capacity_mib / 1024;
+    const percent = Math.max(0, Math.min(100, Math.round(current / max * 100)));
+    return <div className="workload-memory workload-memory-loading" aria-live="polite" aria-busy="true"><div><MetricLabel label="Allocated Model VRAM" help={MODEL_MEMORY_HELP}/><strong>{current.toFixed(1)} GiB</strong></div><div className="meter"><i style={{ width: `${percent}%` }}/></div><small>Loading model… {percent}% of {max.toFixed(1)} GiB</small></div>;
+  }
   const percent = Math.max(0, Math.min(100, Math.round(progress ?? 0)));
   return <div className="workload-memory workload-memory-loading" aria-live="polite" aria-busy="true"><div><MetricLabel label="Allocated Model VRAM" help={MODEL_MEMORY_HELP}/><strong>{percent}%</strong></div><div className="meter"><i style={{ width: `${percent}%` }}/></div><small>{percent > 0 ? `Loading model… ${percent}%` : "Starting model load…"}</small></div>;
 }

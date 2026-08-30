@@ -1,7 +1,7 @@
 export type ConsoleTab = "simulation" | "node" | "insights" | "tco";
 
 const hashes: Record<ConsoleTab, string> = {
-  simulation: "demo-display",
+  simulation: "experiences",
   node: "mvp-dashboard",
   insights: "enterprise-ai-insights",
   tco: "tco-calculator",
@@ -19,11 +19,12 @@ export function normalizeSimulationPath(value: string | undefined): string {
 export function consoleHash(tab: ConsoleTab, simulationPath = "/"): string {
   if (tab !== "simulation") return `#${hashes[tab]}`;
   const path = normalizeSimulationPath(simulationPath);
-  return path === "/" ? "#demo-display" : `#demo-display=${encodeURI(path)}`;
+  return path === "/" ? "#experiences" : `#experiences=${encodeURI(path)}`;
 }
 
 export function parseConsoleHash(hash: string): { tab: ConsoleTab; simulationPath: string } {
   const value = hash.replace(/^#/, "");
+  if (value.startsWith("experiences=")) return { tab: "simulation", simulationPath: normalizeSimulationPath(decodeURI(value.slice(12))) };
   if (value.startsWith("demo-display=")) return { tab: "simulation", simulationPath: normalizeSimulationPath(decodeURI(value.slice(13))) };
   const matched = (Object.entries(hashes) as [ConsoleTab, string][]).find(([, slug]) => slug === value);
   if (matched) return { tab: matched[0], simulationPath: "/" };

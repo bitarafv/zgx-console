@@ -14,12 +14,15 @@ export type WorkloadRuntimeStatus = {
   gpu_compute_allocation_mib?: number | null; active_model_allocation_mib?: number | null;
   gpu?: ModelTransition["gpu"];
   unified_memory?: { usedBytes?: number | null; totalBytes?: number | null; utilizationPercent?: number | null };
+  token_telemetry?: { total_tokens_consumed: number; active_inference_seconds?: number | null; average_soc_power_watts?: number | null; cloud_rate_per_million_tokens?: number | null; throughput_tier?: string | null; sampled_at?: string | null };
 };
 
 
 export type Workload = {
   id: string; name: string; active: boolean; description: string; browser_url: string | null;
+  open_url?: string | null;
   external_browser_url?: string | null; model_names: string[]; intelligence_services: string[];
+  interactive_terminal?: { path: string; auto_open?: boolean; title?: string } | null;
   industry_verticals?: string[];
   expected_cold_load_seconds: number;
   workload_class?: string; policy?: string; shared_services?: string[]; components?: Record<string,string>;
@@ -36,6 +39,7 @@ export type AllocatedModelMemory = {
 };
 export type Resources = {
   sampled_at: string;
+  workload_model_memory?: Record<string, AllocatedModelMemory>;
   memory_bandwidth: MetricValue & { current_gbps: number; maximum_gbps: number };
   allocated_model_memory?: AllocatedModelMemory;
   gpu?: { mode: string; total_mib?: number; workload_used_mib?: number; used_percent?: number };

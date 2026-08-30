@@ -30,7 +30,9 @@ Siva on port `18000` and all launched workloads remain outside console lifecycle
 ./zgx shutdown    # stop console and bridge, but never Siva or workloads
 ```
 
-`update` preserves bridge state: if live telemetry was active before the update, it is restored afterward. Use `update` after pulling or editing source; a plain restart does not build source files.
+`update` preserves bridge state: if live telemetry was active before the update, it is restored afterward. It stops the production console before replacing Next.js build files and keeps a backup of the last working build. If a build fails, the previous build is restored and restarted automatically. Use `update` after pulling or editing source; a plain restart does not build source files. Never run `next build` or `npm run build` directly while the production console is running.
+
+Siva availability does not control the console lifecycle. `start`, `restart`, and `update` report when Siva is unavailable but still manage the console and bridge; none of these commands starts, stops, or modifies Siva.
 
 For live Nano development, first run `./zgx shutdown`, then `npm run dev:nano`. Development mode refuses to start if a production service owns one of the console ports.
 

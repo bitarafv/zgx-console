@@ -17,7 +17,7 @@ const Context = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [selection, setSelectionState] = useState<Selection>();
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
