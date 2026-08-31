@@ -2,24 +2,23 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const consoleSource = readFileSync(new URL("../components/ConsoleShell.tsx", import.meta.url), "utf8");
-const sivaSource = readFileSync(new URL("../components/SivaAdminFrame.tsx", import.meta.url), "utf8");
+const nodeSource = readFileSync(new URL("../components/NodeDashboard.tsx", import.meta.url), "utf8");
 
 describe("admin console composition", () => {
-  it("restores Siva and booking management for an authenticated admin", () => {
-    expect(consoleSource).toContain('import { SivaAdminFrame } from "./SivaAdminFrame"');
-    expect(consoleSource).toContain('import { DemoBookingAdmin } from "./DemoBookingAdmin"');
-    expect(consoleSource).toContain("adminView?<><SivaAdminFrame/><DemoBookingAdmin initialData={adminBookingData}/></>:<NodeDashboard/>");
+  it("uses the native dashboard for authenticated admins", () => {
+    expect(consoleSource).not.toContain("SivaAdminFrame");
+    expect(consoleSource).toContain("<NodeDashboard adminView={adminView} adminBookingData={adminBookingData}/>" );
+    expect(nodeSource).toContain("Advanced Siva Diagnostics");
+    expect(nodeSource).toContain("<DemoBookingAdmin initialData={adminBookingData}/>" );
   });
 
-  it("keeps the public Device surface on the read-only dashboard", () => {
-    expect(consoleSource).toContain(":<NodeDashboard/>");
-    expect(consoleSource).not.toContain("<NodeDashboard adminView={adminView}");
+  it("passes the authorization state through the shared Device dashboard", () => {
+    expect(consoleSource).toContain("adminView={adminView}");
+    expect(nodeSource).toContain("disabled={!admin || Boolean(state)}");
   });
 
-  it("preserves Siva connection checking, retry, and iframe states", () => {
-    expect(sivaSource).toContain('fetch("/admin/siva/api/policy", { cache: "no-store" })');
-    expect(sivaSource).toContain('setState("unavailable")');
-    expect(sivaSource).toContain('setState("checking")');
-    expect(sivaSource).toContain('<iframe src="/admin/siva"');
+  it("keeps Siva diagnostics as an explicit route instead of an iframe", () => {
+    expect(nodeSource).toContain('href="/admin/siva"');
+    expect(consoleSource).not.toContain("<iframe");
   });
 });

@@ -259,7 +259,7 @@ export function NodeDashboard({ adminView = false, adminBookingData }: { adminVi
       </article>;
     })}</div>}
     <p className="savings-assumption">* Electricity: $0.15/kWh · Period: 3 years · Rates are configurable assumptions dated April 2026.</p>
-    {admin && <DemoBookingAdmin initialData={adminBookingData}/>}
+    {admin && <><div className="manageability-links"><span>Advanced administration</span><a href="/admin/siva" target="_blank" rel="noopener">Advanced Siva Diagnostics</a></div><DemoBookingAdmin initialData={adminBookingData}/></>}
   </>;
 }
 
