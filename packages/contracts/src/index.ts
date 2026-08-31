@@ -10,6 +10,7 @@ export type ModelTransition = {
 export type WorkloadRuntimeStatus = {
   ready?: boolean; model_awake?: boolean; model_name?: string | null; active_model?: string | null;
   models?: string[];
+  model_status?: Array<{ id: string; role?: "fast" | "precision" | string; loaded?: boolean; runtime?: string }>;
   model_transition?: ModelTransition | null; containers?: Record<string, string>;
   gpu_compute_allocation_mib?: number | null; active_model_allocation_mib?: number | null;
   gpu?: ModelTransition["gpu"];
@@ -17,6 +18,7 @@ export type WorkloadRuntimeStatus = {
   token_telemetry?: { total_tokens_consumed: number; active_inference_seconds?: number | null; average_soc_power_watts?: number | null; cloud_rate_per_million_tokens?: number | null; throughput_tier?: string | null; sampled_at?: string | null };
 };
 
+export type SchedulerActivity = { state: "loading" | "running" | "cleaning_up" };
 
 export type Workload = {
   id: string; name: string; active: boolean; description: string; browser_url: string | null;
@@ -30,6 +32,7 @@ export type Workload = {
   model_residency?: "resident" | "warm-shared" | "unmapped" | "unknown";
   idle_retention?: "retained" | "releasing" | "released" | "unknown";
   runtime_status?: WorkloadRuntimeStatus;
+  scheduler_activity?: SchedulerActivity | null;
 };
 
 export type MetricValue = { available?: boolean; source?: string; average?: number | null; peak?: number | null };

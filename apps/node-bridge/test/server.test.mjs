@@ -57,7 +57,10 @@ test("externalizes or redacts browser URLs",()=>{
   assert.equal(workloads[0].browser_url,"https://notes.bncvc.com");
   assert.equal(workloads[1].browser_url,null);
   assert.equal(externalize("/api/transitions/id",{browser_url:"http://localhost:8001"}).browser_url,null);
-  assert.equal(externalize("/api/transitions/id",{browser_url:"http://localhost:8005",open_url:"/apps/aml-fraud-agent/"}).open_url,"/apps/aml-fraud-agent/");
+  const router=externalize("/api/transitions/id",{browser_url:"http://localhost:8006",open_url:"http://localhost:8006",external_browser_url:"https://router.bncvc.com"});
+  assert.equal(router.browser_url,"https://router.bncvc.com");
+  assert.equal(router.open_url,"https://router.bncvc.com");
+  assert.equal(externalize("/api/transitions/id",{browser_url:"http://localhost:8005",open_url:"/apps/aml-fraud-agent/",external_browser_url:"https://aml.bncvc.com"}).open_url,"/apps/aml-fraud-agent/");
 });
 
 test("normalizes lifecycle telemetry from Siva",()=>{

@@ -21,7 +21,7 @@ describe("demoModeUrl", () => {
 describe("productionModeUrl", () => {
   it("explicitly disables demo mode while preserving URL state", () => {
     expect(productionModeUrl("https://qwen.example.com/app?tenant=acme#chat"))
-      .toBe("https://qwen.example.com/app?tenant=acme&demo=false#chat");
+      .toBe("https://qwen.example.com/app?tenant=acme#chat");
   });
 
   it("rejects missing and non-web application URLs", () => {

@@ -1,6 +1,7 @@
 import clinicalScribeModule from "./clinical-scribe";
 import radiologyAssistantModule from "./radiology-assistant";
 import riskAnalystCopilotModule from "./risk-analyst-copilot";
+import sovereignAmlModule from "./sovereign-aml-operations";
 import { furySimulationModules } from "./fury-experiences";
 import type { SimulationModule } from "./contracts";
 import { requiredSimulationStates } from "./contracts";
@@ -11,6 +12,7 @@ export const simulationModules: SimulationModule[] = [
   clinicalScribeModule,
   radiologyAssistantModule,
   riskAnalystCopilotModule,
+  sovereignAmlModule,
   ...furySimulationModules,
 ];
 

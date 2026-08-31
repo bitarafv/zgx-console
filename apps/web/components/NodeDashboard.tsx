@@ -42,6 +42,7 @@ export function NodeDashboard({ adminView = false, adminBookingData }: { adminVi
   }, []);
 
   const modelTransitionActive = Object.values(lifecycle).includes("launching")
+    || (workloads ?? []).some(item => Boolean(item.scheduler_activity))
     || (workloads ?? []).some(item => item.active && item.runtime_status?.ready !== true)
     || (workloads ?? []).some(item => item.runtime_status?.model_transition?.status === "running");
   useEffect(() => { transitionActiveRef.current = modelTransitionActive; }, [modelTransitionActive]);
@@ -183,15 +184,16 @@ export function NodeDashboard({ adminView = false, adminBookingData }: { adminVi
   const help = true;
   const allocatedMemory = resources ? modelMemory(resources) : undefined;
   const workloadItems = workloads ?? EMPTY_WORKLOADS;
-  const activeWorkloadId = workloadItems.find(item => item.active)?.id ?? null;
+  const visibleWorkloadItems = useMemo(() => workloadItems.filter(item => item.id !== "dietplan"), [workloadItems]);
+  const activeWorkloadId = visibleWorkloadItems.find(item => item.active)?.id ?? null;
   const inferenceSpeed = resources ? averagedInferenceSpeed(resources, Boolean(activeWorkloadId)) : null;
-  const industries = useMemo(() => [...new Set(workloadItems.flatMap(item => item.industry_verticals ?? []))].sort(), [workloadItems]);
-  const sortedWorkloads = useMemo(() => workloadItems
+  const industries = useMemo(() => [...new Set(visibleWorkloadItems.flatMap(item => item.industry_verticals ?? []))].sort(), [visibleWorkloadItems]);
+  const sortedWorkloads = useMemo(() => visibleWorkloadItems
     .filter(item => industryFilter === "all" || item.industry_verticals?.includes(industryFilter))
     .sort((left, right) => {
       const delta = resourceLaunchEstimate(left) - resourceLaunchEstimate(right);
       return (launchSort === "fastest" ? delta : -delta) || left.name.localeCompare(right.name);
-    }), [workloadItems, launchSort, industryFilter]);
+    }), [visibleWorkloadItems, launchSort, industryFilter]);
   const runningModelTransition = workloadItems.find(item => item.runtime_status?.model_transition?.status === "running")?.runtime_status?.model_transition;
   return <>
     <Hero role={admin ? "Admin View" : "Guest View"}/>
@@ -228,10 +230,10 @@ export function NodeDashboard({ adminView = false, adminBookingData }: { adminVi
       return <article key={item.id} className={[item.active || state ? "workload-live" : "", showMemory ? "workload-has-memory" : ""].filter(Boolean).join(" ") || undefined}>
         <div className="workload-content">
           <div className="workload-card-head"><div className="workload-title"><span className={item.active ? "dot active" : "dot"}/><h3>{item.name}</h3></div><div className="industry-tags" aria-label="Industry verticals">{(item.industry_verticals ?? []).map(value => <span className="industry-chip" key={value}>{value}</span>)}</div></div>
+          {item.scheduler_activity && <SchedulerActivityNotice state={item.scheduler_activity.state}/>}
           <p>{item.description}</p>
           <TokenSavingsMeter item={item}/>
           <div className="chips model-tags">{[...item.model_names, ...item.intelligence_services].map(value => <ModelBadge key={value} item={item} value={value}/>)}</div>
-          <BenchmarkComparison workloadId={item.id}/>
           {hermesTelemetry
             ? <HermesModelMemoryMetric value={workloadMemory ?? allocatedMemory} progress={loadingProgress} loading={launching || modelLoading}/>
             : launching || modelLoading || (item.active && item.runtime_status?.ready !== true)
@@ -265,6 +267,11 @@ function DashboardLoading({ label }: { label: string }) {
   return <div className="dashboard-loading" role="status" aria-live="polite"><i aria-hidden="true"/><span>{label}</span></div>;
 }
 
+function SchedulerActivityNotice({ state }: { state: "loading" | "running" | "cleaning_up" }) {
+  const label = state === "loading" ? "Scheduled guest session loading" : state === "running" ? "In use by a scheduled guest session" : "Scheduled guest session cleaning up";
+  return <div className={`scheduler-activity ${state}`} role="status" aria-live="polite"><i aria-hidden="true"/><span>{label}</span></div>;
+}
+
 function DashboardUnavailable({ subject, onRetry }: { subject: string; onRetry: () => void }) {
   return <div className="dashboard-unavailable" role="alert"><div><strong>Node unavailable</strong><span>Could not load {subject}.</span></div><button type="button" onClick={onRetry}>Retry</button></div>;
 }
@@ -281,7 +288,9 @@ function launchDisplayModel(item: Workload) {
 }
 
 function workloadDemoUrl(item: Workload) {
+  if (item.id === "rag-legal-auditor") return "/demo/rag-legal-auditor";
   if (item.id === "aml-fraud-agent") return "/demo/aml-fraud-agent";
+  if (item.id === "customer-support-router") return "/demo/customer-support-router";
   if (item.id === "dietplan") return "/demo/dietplan";
   if (item.id === "hermes") return "/demo/hermes";
   const configured = item.external_browser_url ?? item.browser_url;
@@ -349,7 +358,27 @@ function ModelBadge({ item, value }: { item: Workload; value: string }) {
   const bf16 = name === "Qwen/Qwen3-32B-BF16";
   const dossierModel = isDossier(item) && ` ${name} `.match(/\D(?:20|120)\s*b\D/i);
   const audioModel = item.id === "scribeai";
-  if (!awq && !bf16 && !dossierModel && !audioModel) return <span>{name}</span>;
+  const amlModel = item.id === "aml-fraud-agent";
+  const legalModel = item.id === "rag-legal-auditor";
+  if (!awq && !bf16 && !dossierModel && !audioModel && !amlModel && !legalModel) return <span>{name}</span>;
+  if (legalModel) {
+    const normalize = (model: string) => model.split("@")[0].trim().toLowerCase();
+    const status = item.runtime_status?.model_status?.find(model => normalize(model.id) === normalize(value));
+    const active = Boolean(item.runtime_status?.ready && status?.loaded);
+    const role = status?.role === "fast" ? "Fast" : status?.role === "precision" ? "Precision" : "Model";
+    return <span className={`model-badge ${active ? "active" : "inactive"}`}>{role}: {name} <b>({active ? "Active" : "Inactive"})</b></span>;
+  }
+  if (amlModel) {
+    const capability = item.intelligence_services.includes(value);
+    if (capability) {
+      const active = Boolean(item.active && item.runtime_status?.ready);
+      return <span className={active ? "model-badge active" : "model-badge inactive"}>{name} <b>({active ? "Active" : "Inactive"})</b></span>;
+    }
+    const normalize = (model: string) => model.split("@")[0].split(" (")[0].trim().toLowerCase();
+    const loaded = item.runtime_status?.models ?? [];
+    const active = Boolean(item.runtime_status?.ready && loaded.some(model => normalize(model) === normalize(value)));
+    return <span className={`model-badge ${active ? "active" : "inactive"}`}>{name} <b>({active ? "Active" : "Inactive"})</b></span>;
+  }
   if (dossierModel) {
     const activeModel = item.runtime_status?.model_name ?? item.runtime_status?.models?.[0] ?? item.runtime_status?.active_model ?? "";
     const normalize = (model: string) => model.split("@")[0].trim().toLowerCase();
@@ -362,18 +391,6 @@ function ModelBadge({ item, value }: { item: Workload; value: string }) {
   }
   const active = Boolean(item.runtime_status?.ready && ((awq && item.runtime_status.active_model === "awq") || (bf16 && item.runtime_status.active_model === "bf16")));
   return <span className={`model-badge ${active ? "active" : "inactive"}`}>{name} <b>({active ? "Active" : "non-Active"})</b></span>;
-}
-
-const BENCHMARKS: Record<string, { unquantized: [number, number, number, number]; quantized: [number, number, number, number] }> = {
-  "rag-legal-auditor": { unquantized: [19.8, 1210, 64200, 96.4], quantized: [51.7, 348, 18300, 89.7] },
-  "aml-fraud-agent": { unquantized: [22.4, 1080, 61800, 97.1], quantized: [67.9, 214, 16900, 91.8] },
-  "customer-support-router": { unquantized: [25.1, 890, 58400, 95.2], quantized: [72.6, 162, 15700, 90.9] },
-};
-
-function BenchmarkComparison({ workloadId }: { workloadId: string }) {
-  const benchmark = BENCHMARKS[workloadId];
-  if (!benchmark) return null;
-  return <div className="workload-memory" aria-label="Simulated model benchmark comparison"><div><span className="metric-label">Unquantized</span><strong>{benchmark.unquantized[0]} t/s · {benchmark.unquantized[1]} ms TTFT</strong></div><small>{(benchmark.unquantized[2] / 1024).toFixed(1)} GiB · {benchmark.unquantized[3]}% score</small><div><span className="metric-label">Quantized</span><strong>{benchmark.quantized[0]} t/s · {benchmark.quantized[1]} ms TTFT</strong></div><small>{(benchmark.quantized[2] / 1024).toFixed(1)} GiB · {benchmark.quantized[3]}% score · simulated</small></div>;
 }
 
 function isDossier(item: Workload) {

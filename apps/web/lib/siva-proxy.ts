@@ -49,6 +49,7 @@ export function rewriteSivaHtml(source: string, visibleModel?: string): string {
     .replace(/(["\x27])\/launch\//g, "$1/admin/siva/launch/")
     .replace(/href=(["'])\/\1/g, "href=$1/admin/siva$1")
     .replace(/location\.href=(["'])\/\1/g, "location.href=$1/admin/siva$1")
+    .replace('const raw=x.interactive_terminal?.path||x.open_url||x.browser_url;', 'const raw=x.target_workload==="aml-fraud-agent"&&x.external_browser_url?x.external_browser_url:(x.interactive_terminal?.path||x.open_url||x.browser_url);')
     .replace('id="filePath">Hermes sandbox<', 'id="filePath">/opt/data<')
     .replace("filePathLabel.textContent=workspacePath?`Hermes sandbox / ${workspacePath}`:'Hermes sandbox';", "filePathLabel.textContent=workspacePath?`/opt/data/${workspacePath}`:'/opt/data';")
     .replace(/\${x\.interactive_terminal\?\.path\|\|x\.browser_url}/g, "${x.interactive_terminal?.path?'/admin/siva'+x.interactive_terminal.path:(()=>{const u=new URL(x.browser_url);u.searchParams.set(\"demo\",\"false\");return u.toString()})()}");

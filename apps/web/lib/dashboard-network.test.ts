@@ -10,12 +10,23 @@ describe("dashboard browser network access", () => {
     expect(source).not.toMatch(/\b800[456]\b/);
   });
 
-  it("keeps the built-in simulated benchmark comparisons", () => {
-    expect(source).toContain("const BENCHMARKS");
-    expect(source).toContain('"rag-legal-auditor"');
-    expect(source).toContain('"aml-fraud-agent"');
-    expect(source).toContain('"customer-support-router"');
-    expect(source).toContain('aria-label="Simulated model benchmark comparison"');
+  it("does not show stale simulated benchmarks on live workload cards", () => {
+    expect(source).not.toContain("const BENCHMARKS");
+    expect(source).not.toContain('aria-label="Simulated model benchmark comparison"');
+  });
+
+  it("reflects live AML model readiness on its model chips", () => {
+    expect(source).toContain('const amlModel = item.id === "aml-fraud-agent"');
+    expect(source).toContain("item.runtime_status?.ready && loaded.some");
+    expect(source).not.toContain('item.runtime_status?.ready ? "READY"');
+    expect(source).toContain("item.intelligence_services.includes(value)");
+    expect(source).toContain("item.active && item.runtime_status?.ready");
+  });
+
+  it("shows exact legal model roles from live Siva status", () => {
+    expect(source).toContain('item.id === "rag-legal-auditor"');
+    expect(source).toContain('status?.role === "fast" ? "Fast"');
+    expect(source).toContain('status?.role === "precision" ? "Precision"');
   });
 
   it("leaves verified-success auto-open to the launch page exactly once", () => {

@@ -27,26 +27,55 @@ describe("workload open control", () => {
   });
 
   it("opens relative Siva application URLs through the authenticated mount", () => {
-    expect(workloadOpenControl(workload({ id: "aml-fraud-agent", browser_url: null, open_url: "/apps/aml-fraud-agent/" }), true)).toEqual({
-      href: "/admin/siva/apps/aml-fraud-agent/?demo=false",
+    expect(workloadOpenControl(workload({ id: "aml-fraud-agent", browser_url: null, external_browser_url: "https://aml.bncvc.com", open_url: "/apps/aml-fraud-agent/" }), true)).toEqual({
+      href: "https://aml.bncvc.com/",
       label: "Open the app",
     });
   });
 
-  it("preserves proxied application query parameters while selecting production mode", () => {
+  it("prefers the dedicated AML origin over the internal proxy mount", () => {
+    expect(workloadOpenControl(workload({
+      id: "aml-fraud-agent",
+      browser_url: "http://localhost:8005",
+      external_browser_url: "https://aml.bncvc.com",
+      open_url: "/apps/aml-fraud-agent/",
+    }), true)).toEqual({ href: "https://aml.bncvc.com/", label: "Open the app" });
+  });
+
+  it("opens Contract & Legal Auditor through its external hostname", () => {
+    expect(workloadOpenControl(workload({
+      id: "rag-legal-auditor",
+      browser_url: "http://localhost:8004",
+      external_browser_url: "https://contract.bncvc.com?demo=true",
+      open_url: "/apps/rag-legal-auditor/",
+    }), true)).toEqual({ href: "https://contract.bncvc.com/", label: "Open the app" });
+  });
+
+  it("preserves proxied application query parameters without adding mode flags", () => {
     expect(workloadOpenControl(workload({
       id: "future-app",
       browser_url: null,
-      open_url: "/apps/future-app/workspace?tenant=north&demo=true#cases",
+      open_url: "/apps/future-app/workspace?tenant=north#cases",
     }), true)).toEqual({
-      href: "/admin/siva/apps/future-app/workspace?tenant=north&demo=false#cases",
+      href: "/admin/siva/apps/future-app/workspace?tenant=north#cases",
       label: "Open the app",
     });
   });
 
   it("opens browser workloads in production mode", () => {
     expect(workloadOpenControl(workload(), true)).toEqual({
-      href: "https://notes.bncvc.com/?demo=false",
+      href: "https://notes.bncvc.com/",
+      label: "Open the app",
+    });
+  });
+
+  it("opens Support Router through its external hostname instead of Mac localhost", () => {
+    expect(workloadOpenControl(workload({
+      id: "customer-support-router",
+      browser_url: "http://localhost:8006",
+      external_browser_url: "https://router.bncvc.com",
+    }), true)).toEqual({
+      href: "https://router.bncvc.com/",
       label: "Open the app",
     });
   });
@@ -73,13 +102,25 @@ describe("workload open control", () => {
     expect(workloadOpenControl(workload({
       runtime_status: { ready: true, model_transition: { status: "ready" } },
     }), true)).toEqual({
-      href: "https://notes.bncvc.com/?demo=false",
+      href: "https://notes.bncvc.com/",
       label: "Open the app",
     });
   });
 
-  it("omits the control for inactive workloads and guests", () => {
+  it("exposes ready external browser workloads to guests but keeps inactive workloads hidden", () => {
     expect(workloadOpenControl(workload({ active: false }), true)).toBeNull();
-    expect(workloadOpenControl(workload(), false)).toBeNull();
+    expect(workloadOpenControl(workload(), false)).toEqual({ href: "https://notes.bncvc.com/", label: "Open the app" });
+  });
+
+  it("exposes ready AML directly through its dedicated origin to guests", () => {
+    expect(workloadOpenControl(workload({ id: "aml-fraud-agent", external_browser_url: "https://aml.bncvc.com" }), false)).toEqual({
+      href: "https://aml.bncvc.com/",
+      label: "Open the app",
+    });
+  });
+
+  it("keeps authenticated terminal and proxy destinations admin-only", () => {
+    expect(workloadOpenControl(workload({ id: "hermes", interactive_terminal: { path: "/terminal/hermes" } }), false)).toBeNull();
+    expect(workloadOpenControl(workload({ id: "future-app", open_url: "/apps/future-app/" }), false)).toBeNull();
   });
 });

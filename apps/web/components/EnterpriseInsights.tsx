@@ -1,111 +1,93 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, ArrowRight, Bot, Building2, Cpu, Gauge, HardDrive, Layers3, LifeBuoy, LockKeyhole, Network, PackageCheck, RotateCcw, Server, ShieldCheck, Tags, WalletCards, Wrench } from "lucide-react";
-
+import { ArrowRight, Bot, Check, ChevronDown, CircleAlert, Cpu, Download, ExternalLink, FlaskConical, Headphones, LifeBuoy, MessageCircle, Network, Send, Server, ShieldCheck, Sparkles, Wrench, X } from "lucide-react";
 import { trackZgxInteraction } from "@/lib/telemetry";
-const chapters = [
-  { id: "decision", label: "Decision guide" }, { id: "governance", label: "Security & governance" },
-  { id: "infrastructure", label: "Infrastructure & scale" }, { id: "manageability", label: "Manageability" },
-  { id: "costs", label: "Costs & support" },
+
+const stages = [
+  { id: "choose", label: "Choose", hint: "Right system" },
+  { id: "secure", label: "Secure", hint: "Data & risk" },
+  { id: "compatible", label: "Validate", hint: "Software fit" },
+  { id: "operate", label: "Operate", hint: "Access & fleet" },
+  { id: "deploy", label: "Deploy", hint: "Site & integration" },
+  { id: "support", label: "Support", hint: "Ownership & SLA" },
+  { id: "prove", label: "Prove", hint: "Fury pilot" },
 ] as const;
-type Chapter = typeof chapters[number]["id"];
+type Stage = typeof stages[number]["id"];
+type Evidence = "confirmed" | "validate" | "pilot" | "preview";
 
-const governanceControls = [
-  { icon: LockKeyhole, title: "Identity & access", text: "Integrate named administrators, role-based access, SSH key policy, least privilege, and management-plane network controls." },
-  { icon: ShieldCheck, title: "Security baseline", text: "Standardize DGX OS or the supported HP image, patch cadence, UEFI policy, TPM use, encrypted storage, logging, and recovery media." },
-  { icon: PackageCheck, title: "Models", text: "Allowlist model IDs and versions; record source, license, digest, scan results, approver, deployment owner, and retirement date." },
-  { icon: Layers3, title: "Software & containers", text: "Approve ARM64-compatible packages and images, trusted registries, signatures, SBOMs, CUDA requirements, privileges, and network egress." },
-  { icon: Activity, title: "Compliance evidence", text: "Map technical controls to the customer framework and retain inventory, change, access, inference, incident, and disposition evidence." },
-];
-
-const fleetLifecycle = [
-  { icon: Tags, title: "Procure", text: "Record SKU, entitlement, asset identity, owner, and CMDB relationship." },
-  { icon: ShieldCheck, title: "Provision", text: "Apply users, SSH keys, network, certificates, packages, and policy at first boot." },
-  { icon: Activity, title: "Monitor", text: "Collect health, inventory, firmware, and drift evidence into existing operations tools." },
-  { icon: Wrench, title: "Maintain", text: "Stage OS, driver, and firmware updates through approved rings and maintenance windows." },
-  { icon: Gauge, title: "Respond", text: "Run targeted diagnostics first; retrieve deeper evidence bundles only for escalation." },
-  { icon: RotateCcw, title: "Retire", text: "Reset, wipe, offboard, and retain disposition evidence under customer policy." },
-];
+const statusLabels: Record<Evidence,string> = {confirmed:"HP confirmed",validate:"Validate in quote",pilot:"Pilot required",preview:"Fury pre-release"};
 
 export function EnterpriseInsights() {
-  const [chapter, setChapter] = useState<Chapter>("decision");
-  return <>
-    <div className="hero compact insight-hero"><div><p className="eyebrow">ENTERPRISE AI INSIGHTS</p><h1>Answers for bringing <span>ZGX into the enterprise</span></h1><p>A practical buyer guide to security, governance, compatibility, facilities, cost, fleet operations, and support.</p></div><div className="insight-orbit"><Bot /><span>Evaluate</span><span>Govern</span><span>Operate</span></div></div>
-    <nav className="chapter-nav" aria-label="Insight chapters">{chapters.map((item) => <button key={item.id} className={chapter === item.id ? "active" : ""} onClick={() => {setChapter(item.id);trackZgxInteraction("Enterprise AI Insights","insight_chapter",item.id,item.label)}}>{item.label}</button>)}</nav>
-    {chapter === "decision" && <DecisionGuide />}{chapter === "governance" && <Governance />}{chapter === "infrastructure" && <Infrastructure />}{chapter === "manageability" && <Manageability />}{chapter === "costs" && <CostsSupport />}
-    <p className="source-note">Product availability, specifications, licensing, warranty, and support vary by configuration and region. Validate the final HP quote, QuickSpecs, software entitlements, workload compatibility, and site design before purchase.</p>
-  </>;
+  const [stage,setStage] = useState<Stage>("choose");
+  const [chatOpen,setChatOpen] = useState(false);
+  const current = stages.findIndex(item=>item.id===stage);
+  const navigate = (next:Stage) => { setStage(next); trackZgxInteraction("Enterprise Guide","approval_stage",next); };
+  return <div className="enterprise-v2">
+    <header className="ev-hero">
+      <div><p className="ev-overline"><span>Enterprise Guide</span><i/> Field-ready</p><h1>From first question<br/>to <em>approved deployment.</em></h1><p>Clear answers for choosing, securing, and integrating HP ZGX—built for the customer conversation.</p><button onClick={()=>navigate("choose")}>Start with the right system <ArrowRight/></button></div>
+      <div className="ev-hero-card"><span>Approval path</span><strong>7</strong><p>decisions from product fit to production proof</p><div>{["Fit","Risk","IT","SLA"].map((item,index)=><i key={item} style={{animationDelay:`${index*120}ms`}}>{item}</i>)}</div></div>
+    </header>
+    <nav className="ev-journey" aria-label="Customer approval journey">{stages.map((item,index)=><button key={item.id} className={stage===item.id?"active":""} onClick={()=>navigate(item.id)}><b>{String(index+1).padStart(2,"0")}</b><span>{item.label}<small>{item.hint}</small></span></button>)}</nav>
+    <div className="ev-legend" aria-label="Evidence maturity"><span>Evidence</span><Status type="confirmed"/><Status type="validate"/><Status type="pilot"/><Status type="preview"/></div>
+    <main className="ev-stage" key={stage}>
+      <div className="ev-stage-progress"><span>Step {current+1} of {stages.length}</span><i><b style={{width:`${((current+1)/stages.length)*100}%`}}/></i></div>
+      {stage==="choose"&&<Choose/>}{stage==="secure"&&<Secure/>}{stage==="compatible"&&<Compatible/>}{stage==="operate"&&<Operate/>}{stage==="deploy"&&<Deploy/>}{stage==="support"&&<Support/>}{stage==="prove"&&<Prove/>}
+      {current<stages.length-1&&<button className="ev-next" onClick={()=>navigate(stages[current+1].id)}>Next: {stages[current+1].label}<ArrowRight/></button>}
+    </main>
+    <footer className="ev-footnote">Specifications, availability, services, and entitlements vary by SKU and region. Confirm the final HP quote, current QuickSpecs, and pilot acceptance criteria before making a commitment.</footer>
+    <GuideChat open={chatOpen} setOpen={setChatOpen} navigate={navigate}/>
+  </div>;
 }
 
-function DecisionGuide() { return <div className="buyer-guide">
-  <div className="section-head insight-heading"><div><p className="eyebrow">START WITH THE OPERATING MODEL</p><h2>Nano for individual development. Fury for departmental production.</h2></div><p>Choose against validated workloads, users, latency, data, and support needs—not parameter count alone.</p></div>
-  <div className="platform-compare">
-    <article><div className="platform-label"><Cpu/><span>HP ZGX Nano G1n</span></div><h3>Compact AI development system</h3><dl><Fact label="Best fit" value="Experimentation, prototyping, fine-tuning, and local inference"/><Fact label="Memory" value="128 GB coherent unified memory"/><Fact label="OS & CPU" value="NVIDIA DGX OS 7 / Ubuntu 24.04 on Arm; Windows is not supported"/><Fact label="Placement" value="15 cm mini desktop; 240 W external power adapter"/><Fact label="Scale point" value="One system supports models up to 200B; HP documents up to 405B with two connected systems"/></dl></article>
-    <article><div className="platform-label fury"><Server/><span>HP ZGX Fury</span></div><h3>Departmental AI development and production</h3><dl><Fact label="Best fit" value="Advanced fine-tuning, production inference, agents, and concurrent users"/><Fact label="Memory" value="748 GB coherent memory on NVIDIA GB300 Grace Blackwell Ultra"/><Fact label="OS status" value="HP currently lists Ubuntu with NVIDIA AI developer tools; Windows support is planned, not current"/><Fact label="Placement" value="Deskside and described by HP as rack-ready; confirm the supported rack design in the final BOM"/><Fact label="Availability" value="Confirm region, order status, specifications, and delivery date with HP"/></dl></article>
-  </div>
-  <div className="fit-gates"><article><strong>Choose Nano when</strong><p>One developer or a small team needs private, immediate capacity and the workload fits its memory, Arm software stack, and concurrency envelope.</p></article><article><strong>Choose Fury when</strong><p>A department needs larger models, more simultaneous users, or a production serving tier without building a conventional GPU data center.</p></article><article><strong>Pause for architecture review when</strong><p>The application requires Windows today, x86-only binaries, GPU-passthrough virtualization, certified ISV support, HA, multi-node scheduling, or a regulated production control not yet designed.</p></article></div>
-  <SourceLinks links={[["HP Z AI Stations","https://www.hp.com/us-en/workstations/ai-stations.html"],["HP ZGX Nano specifications","https://support.hp.com/us-en/document/ish_13212147-13212192-16"]]}/>
-</div>; }
+function Choose(){return <Stage title="Choose the right system" eyebrow="Start here" answer="Start with Nano to develop and validate locally. Choose Fury when the requirement is shared departmental inference or advanced fine-tuning. Both require Arm64 software and enterprise deployment validation.">
+  <div className="ev-products"><Product name="ZGX Nano G1n" icon="nano" status="Available · regional configuration varies" statusType="confirmed" role="Individual or small-team AI" specs={["GB10 · 128 GB unified memory","NVIDIA DGX OS · Arm64 Linux","Developer appliance or managed endpoint"]} gate="Software compatibility and management fit"/><Product name="ZGX Fury" icon="fury" status="Pre-order / Priority Access" statusType="preview" role="Departmental AI service" specs={["GB300 · 748 GB coherent memory","Ubuntu + NVIDIA AI Developer Tools","Shared service with production ownership"]} gate="Availability, facilities, SLA, and workload proof"/></div>
+  <Callout title="Do not promise a frictionless scale-up" text="Model packaging may transfer, but serving, identity, storage, observability, and high-availability architecture can change substantially."/>
+  <Sources links={[["HP Z AI Stations","https://www.hp.com/us-en/workstations/ai-stations.html"],["Nano specifications","https://support.hp.com/us-en/document/ish_13212147-13212192-16"]]}/>
+</Stage>}
 
-function Governance() { return <div className="buyer-guide">
-  <div className="section-head insight-heading"><div><p className="eyebrow">SECURITY IS AN OPERATING MODEL</p><h2>Local processing improves control. It does not create compliance by itself.</h2></div><p>Security and compliance depend on the full application, model, identity, network, update, and evidence design.</p></div>
-  <div className="truth-banner"><ShieldCheck/><div><strong>What “data stays local” should mean</strong><p>Inference data remains inside the approved environment only when applications, models, telemetry, package sources, and integrations are configured not to send it elsewhere. Verify egress rather than relying on the hardware location.</p></div></div>
-  <div className="governance-grid">{governanceControls.map((item) => <article key={item.title}><item.icon/><h3>{item.title}</h3><p>{item.text}</p></article>)}</div>
-  <section className="control-workflow"><div><p className="eyebrow">MODEL AND SOFTWARE PROMOTION</p><h3>Make installation a governed pipeline</h3></div><ol>{["Request","License & provenance","Security scan","Technical validation","Approval","Deploy by digest","Monitor & retire"].map((item,index)=><li key={item}><span>{index+1}</span>{item}</li>)}</ol></section>
-  <div className="answer-table"><div><strong>Does ZGX make us compliant?</strong><p>No. It can support data residency and technical controls, but the customer must map, validate, document, and operate the controls required by its framework.</p></div><div><strong>Can users install anything?</strong><p>Technically it is a Linux AI system; enterprise policy should limit installations to approved Arm-compatible packages, containers, models, and repositories.</p></div><div><strong>Who decides which models run?</strong><p>The customer. Use an allowlist and registry workflow; do not let model discovery or developer access become automatic production approval.</p></div></div>
-  <SourceLinks links={[["DGX OS security and compliance","https://docs.nvidia.com/dgx/dgx-spark/dgx-os.html"],["NVIDIA software terms","https://docs.nvidia.com/dgx/dgx-spark/eula.html"]]}/>
-</div>; }
+function Secure(){return <Stage title="Security and data governance" eyebrow="Approval gate 02" answer="‘Data stays local’ is a deployment attribute—not a complete security answer. Validate identity, egress, encryption, software provenance, patching, logging, recovery, and physical controls.">
+  <Alert title="Action required · HP security bulletin" text="Some Nano systems manufactured before March 19, 2026 may contain duplicated SSH host keys. Detect affected systems and regenerate keys before deployment." href="https://support.hp.com/us-en/document/ish_14942940-14942962-16/hpsbhf04123"/>
+  <ProductDetails nano={{evidence:"validate",status:"HP-confirmed controls + customer configuration",items:["TPM 2.0, Secure Boot policy, and self-encrypting storage capability","Credential, SSH-key, local-admin, segmentation, and outbound-access policy","Optional regulated configuration without Wi-Fi or Bluetooth","SIEM forwarding, backup, secure erase, media handling, and air-gap updates"]}} fury={{evidence:"preview",status:"Reference capability—not final HP implementation",items:["NVIDIA reference platform documents Secure Boot, TPM, signed firmware, BMC telemetry, web management, and Redfish","Require HP final documentation before committing to exact implementation","Define RBAC, secrets, data flows, model governance, evidence retention, and incident ownership"]}}/>
+  <Sources links={[["HP security bulletin","https://support.hp.com/us-en/document/ish_14942940-14942962-16/hpsbhf04123"],["NVIDIA DGX Station stack","https://docs.nvidia.com/dgx/dgx-station-development-guide/porting/software-requirements.html"]]}/>
+</Stage>}
 
-function Infrastructure() { return <div className="buyer-guide">
-  <div className="section-head insight-heading"><div><p className="eyebrow">FACILITIES AND INTEGRATION</p><h2>Resolve placement, power, network, and software fit before ordering.</h2></div><p>Published capability is a starting point; the final BOM and site design are the acceptance baseline.</p></div>
-  <div className="infrastructure-grid">
-    <article><Network/><h3>How does it scale?</h3><p>Nano can connect two systems over high-speed QSFP for supported larger-model workflows. Fury targets multi-user departmental serving. More devices do not automatically become one service: define routing, scheduling, storage, identity, monitoring, failure handling, and capacity policy.</p></article>
-    <article><Gauge/><h3>What is the power demand?</h3><p>Nano ships with a 240 W adapter; that rating is not a promise of constant consumption. HP has not published a final Fury input-power, heat, or acoustic figure on the cited product page. Require measured workload draw and final QuickSpecs before electrical or cooling approval.</p></article>
-    <article><Server/><h3>Can it be racked?</h3><p>Nano is a mini desktop. HP describes its AI Station approach as rack-ready, but rack shelves, density, airflow, cable management, service clearance, and remote-console design must be confirmed. Optional HP Remote System Controller adds BIOS-level KVM and virtual media on Nano, but not remote power-on.</p></article>
-    <article><HardDrive/><h3>Will current software work?</h3><p>Nano is Arm64 Linux, not a Windows PC. Validate architecture, OS, CUDA and driver versions, container images, peripherals, authentication, network ports, storage, and ISV support. HP ZGX Toolkit clients can run on x86 Windows 11 or Ubuntu 24.04 with VS Code.</p></article>
-  </div>
-  <section className="readiness-strip"><strong>Architecture acceptance checks</strong>{["Representative model","Peak concurrent users","Latency target","Data classification","Arm64 dependencies","Network & storage","Measured power","Recovery test"].map(item=><span key={item}>{item}</span>)}</section>
-  <SourceLinks links={[["HP ZGX Nano product details","https://www.hp.com/us-en/workstations/zgx-nano-ai-station.html"],["HP Z AI Stations","https://www.hp.com/us-en/workstations/ai-stations.html"]]}/>
-</div>; }
+function Compatible(){const fields=["Application + exact version","Linux Arm64 package, wheel, or image","CUDA, driver, PyTorch, TensorRT, vLLM, Triton, NCCL","Container architecture: linux/arm64 or multi-arch","ISV certification + model license","Auth, proxy, DNS, certificates, registry, NTP","Storage, database, MLOps, and monitoring","Peripherals + kernel modules"];return <Stage title="Validate the software stack" eyebrow="Approval gate 03" answer="Windows, Mac, and Linux clients can connect over the network—but Windows applications and x86-only containers do not run natively on either Arm64 ZGX platform.">
+  <div className="ev-client-note"><Network/><div><strong>Client is not host</strong><p>HP ZGX Toolkit requires a supported x86 Windows 11 or Ubuntu 24.04 client with VS Code. The ZGX host remains Arm64 Linux.</p></div></div>
+  <div className="ev-worksheet"><div><span>Compatibility worksheet</span><h3>Record before the pilot</h3><p>A container does not make an x86 binary Arm-compatible.</p><button type="button" disabled><Download/> Downloadable version coming soon</button></div><ul>{fields.map(item=><li key={item}><i/><span>{item}</span></li>)}</ul></div>
+  <ProductDetails nano={{evidence:"pilot",status:"DGX OS · Arm64",items:["Validate every binary, wheel, image, driver, and peripheral","Use exact package versions from the live Toolkit documentation","Test the representative model and end-to-end integrations"]}} fury={{evidence:"preview",status:"Ubuntu · Arm64 · pre-release",items:["Repeat validation for the Fury production stack","Do not infer compatibility from Nano alone","Prove throughput, latency, batching, and concurrent-user behavior"]}}/>
+  <Sources links={[["NVIDIA DGX Spark software","https://docs.nvidia.com/dgx/dgx-spark/dgx-os.html"],["HP ZGX Toolkit","https://www.hp.com/us-en/workstations/ai-stations.html"]]}/>
+</Stage>}
 
-function Fact({label,value}:{label:string;value:string}) { return <div><dt>{label}</dt><dd>{value}</dd></div>; }
+function Operate(){return <Stage title="Access, manage, and recover" eyebrow="Approval gate 04" answer="Treat user access, IT administration, and out-of-band recovery as three different requirements. A remote console is not a fleet-management platform.">
+  <div className="ev-three"><Mini icon={<Network/>} title="User access" text="SSH, VS Code, Jupyter, and approved model or API endpoints."/><Mini icon={<Wrench/>} title="IT administration" text="Imaging, patching, inventory, identity, compliance, and evidence."/><Mini icon={<LifeBuoy/>} title="Out-of-band recovery" text="BIOS, KVM, virtual media, power state, and break-glass access."/></div>
+  <ProductDetails nano={{evidence:"confirmed",status:"RSC limitation must be explicit",items:["Optional HP Remote System Controller provides BIOS-level KVM and virtual media","Nano must already be powered on; remote power-on is not supported","Define cloud-init, Landscape or supported endpoint tooling, patch rings, and recovery media"]}} fury={{evidence:"preview",status:"Production operating model required",items:["Named owner and on-call path; RBAC, isolation, quotas, and queueing","Monitoring, alerting, API gateway, secrets, backup, and restore","Capacity thresholds, maintenance, upgrade/rollback, failure domains, and HA expectations"]}}/>
+  <Callout title="Multi-user is not an SLA" text="Capacity depends on model size, precision, context length, batching, tokens per second, and latency target. Benchmark the intended workload."/>
+</Stage>}
 
-function SourceLinks({links}:{links:[string,string][]}) { return <div className="insight-links"><span>Official references</span>{links.map(([label,url])=><a key={url} href={url} target="_blank" rel="noreferrer">{label}<ArrowRight size={13}/></a>)}</div>; }
+function Deploy(){return <Stage title="Facilities and integration" eyebrow="Approval gate 05" answer="Use the final SKU-specific QuickSpecs as the facilities source of truth. ‘Rack-ready’ marketing is not an orderable rack kit or a validated density design.">
+  <ProductDetails nano={{evidence:"validate",status:"Validate source revision",items:["Resolve the public 240 W adapter versus 280 W supply descriptions against current QuickSpecs","Record measured draw, heat, acoustics, placement, service clearance, and cable plan","Confirm network ports, QSFP bend radius, storage, recovery access, and regulated wireless configuration"]}} fury={{evidence:"preview",status:"Final HP QuickSpecs required",items:["Do not use NVIDIA’s 1,600 W GB300 reference budget as HP wall-power specification","Require plug, circuit, heat rejection, acoustics, airflow, dimensions, and service clearance","Confirm shelf/rail part, devices per shelf, PDU and network ports, and crash-cart/BMC method"]}}/>
+  <div className="ev-checks"><strong>Deployment record</strong>{["Location","Shelf / rail","Density","Airflow","Input power","Heat + noise","Service clearance","Cabling","PDU + ports","Recovery method"].map(item=><span key={item}><Check/>{item}</span>)}</div>
+</Stage>}
 
-function Manageability() { return <div className="manageability">
-  <div className="section-head insight-heading"><div><p className="eyebrow">ZGX FLEET OPERATIONS</p><h2>Manage ZGX as an enterprise endpoint—with an appliance mindset</h2></div><p>Fit each device into the tools, controls, and evidence flows IT already operates.</p></div>
-  <section className="manageability-answer" aria-label="Manageability summary">
-    <div><span>Recommended fleet platform</span><strong>Canonical Landscape</strong><p>Included through the Ubuntu Pro entitlement for user management, policy deployment, and controlled OS, driver, and firmware updates.</p></div>
-    <div><span>Universal integration contract</span><strong>SSH + bounded JSON</strong><p>Run a focused collector or controller, ingest a small result, and pull a diagnostic artifact only when deeper evidence is needed.</p></div>
-    <div><span>Safe change model</span><strong>Pilot → waves → broad</strong><p>Separate read-only collection from state-changing actions and gate updates, reboots, and remediation through approved windows.</p></div>
-  </section>
-  <section className="fleet-lifecycle" aria-labelledby="fleet-lifecycle-title">
-    <div className="manageability-section-title"><div><p className="eyebrow">END-TO-END CONTROL</p><h3 id="fleet-lifecycle-title">One operating model across the device lifecycle</h3></div></div>
-    <div>{fleetLifecycle.map((item, index) => <article key={item.title}><span>0{index + 1}</span><item.icon/><h4>{item.title}</h4><p>{item.text}</p></article>)}</div>
-  </section>
-  <section className="manageability-faq" aria-labelledby="manageability-faq-title">
-    <div className="manageability-section-title"><div><p className="eyebrow">CUSTOMER QUESTIONS</p><h3 id="manageability-faq-title">What enterprise IT needs to know</h3></div></div>
-    <div className="manageability-faq-list">
-      <details open><summary>Can ZGX fit our current endpoint tools?<span>+</span></summary><p>Yes. Canonical Landscape is NVIDIA&apos;s primary recommended platform for DGX Spark. Ansible, Puppet, Tanium, and other ARM64-capable tools can cover broader fleet workflows under their vendors&apos; support. NVIDIA also publishes agentless SSH reference patterns that return machine-ingestible JSON.</p></details>
-      <details><summary>Can we provision consistently or without internet access?<span>+</span></summary><p>Yes. Cloud-init can set identity, administrators, SSH keys, networking, certificates, packages, proxies, and management enrollment on first boot. Customized BaseOS or recovery media, PXE, USB delivery, and local APT or firmware mirrors support controlled and air-gapped environments.</p></details>
-      <details><summary>How are OS, driver, and firmware changes controlled?<span>+</span></summary><p>DGX Dashboard is the recommended single-device update path. At fleet scale, use Landscape or the customer&apos;s orchestration platform to run prechecks, stage pilot devices, roll through waves, validate outcomes, and preserve rollback or recovery readiness.</p></details>
-      <details><summary>What can operations monitor and collect?<span>+</span></summary><p>Fleet workflows can collect device identity, hardware configuration, OS build, drivers, firmware, health, reset reason, and drift posture. Keep routine output bounded for CMDB, ticketing, or SIEM ingestion; generate larger diagnostics bundles only for incident response or support escalation.</p></details>
-      <details><summary>Who owns policy and governance?<span>+</span></summary><p>NVIDIA provides the DGX OS baseline, platform guidance, diagnostic patterns, and reference integrations. HP owns the hardware platform, OEM support path, and lifecycle service process. The customer owns identity and RBAC, configuration policy, approved applications, container images and models, fleet orchestration, SIEM and audit integration, change control, and evidence retention.</p></details>
-      <details><summary>How do support, recovery, and retirement work?<span>+</span></summary><p>Operations can collect focused health evidence, run NVIDIA Field Diagnostic when appropriate, and attach deeper bundles to HP or NVIDIA escalations. Recovery restores the supported NVIDIA or HP OEM baseline; media and procedures are model-specific. Retirement adds customer-controlled wipe, offboarding, chain-of-custody, and disposition records.</p></details>
-    </div>
-  </section>
-  <div className="manageability-links"><span>Official NVIDIA references</span><a href="https://docs.nvidia.com/dgx/dgx-spark/enterprise-manageability.html" target="_blank" rel="noreferrer">Enterprise manageability <ArrowRight size={13}/></a><a href="https://docs.nvidia.com/dgx/dgx-spark/os-and-component-update.html" target="_blank" rel="noreferrer">Update guidance <ArrowRight size={13}/></a></div>
-</div>; }
+function Support(){return <Stage title="Services and accountability" eyebrow="Approval gate 06" answer="Put service ownership and response targets on the quote. Do not infer enterprise coverage from a general support page or assume every Care Pack applies to every ZGX SKU.">
+  <div className="ev-owners"><Mini icon={<Headphones/>} title="HP hardware" text="Warranty, repair method, parts, firmware/OEM image, eligible Care Packs, and geography."/><Mini icon={<Cpu/>} title="NVIDIA software" text="DGX OS guidance and separately entitled enterprise software escalation."/><Mini icon={<ShieldCheck/>} title="Customer / integrator" text="Architecture, policy, apps, models, integrations, backup, monitoring, and runbooks."/></div>
+  <div className="ev-quote"><div><span>Quote-specific checklist</span><h3>Ask for every line in writing.</h3></div><ul>{["Base warranty and exact SKU","Onsite versus exchange","Response target and parts availability","Defective Media Retention eligibility","Geographic and travel coverage","OS, firmware, NVIDIA, and Toolkit owners","Deployment and onboarding services","Named escalation process"].map(item=><li key={item}><Check/>{item}</li>)}</ul></div>
+  <Callout title="Current Nano baseline needs validation" text="The US store listing describes one-year parts-and-labor limited warranty with no onsite repair. Any stronger service level must be confirmed as eligible on the quoted SKU."/>
+</Stage>}
 
-function CostsSupport() { return <div className="buyer-guide">
-  <div className="section-head insight-heading"><div><p className="eyebrow">COMMERCIAL CLARITY</p><h2>No local token meter—but not every software or service is free.</h2></div><p>Separate the hardware purchase, included components, optional subscriptions, third-party licenses, operating cost, and support coverage.</p></div>
-  <div className="cost-truth">
-    <article><WalletCards/><p className="eyebrow">WHAT DOES NOT ACCRUE BY DEFAULT</p><h3>Local inference has no HP or NVIDIA per-token charge</h3><p>Owning the system shifts compatible local workloads away from usage-priced cloud APIs. HP states that ZGX Toolkit is provided free of charge. Open-source models and tools still carry their own license terms.</p></article>
-    <article><LifeBuoy/><p className="eyebrow">WHAT MAY RECUR</p><h3>Enterprise software and support are entitlement-based</h3><p>NVIDIA AI Enterprise—DGX Spark is a separately obtained product or evaluation; enterprise software support requires the specific DGX Spark entitlement. Third-party applications, models, management tools, extended HP services, electricity, storage, backup, and operations may also add recurring cost.</p></article>
-  </div>
-  <section className="responsibility-matrix"><div><Building2/><strong>HP hardware service</strong><p>Hardware warranty, repair, parts, firmware/OEM image path, optional accessories, and any purchased HP service. Coverage and response level must be confirmed by SKU, country, and contract.</p></div><div><Cpu/><strong>NVIDIA software</strong><p>DGX OS documentation, release and recovery guidance, community channels, and separately entitled NVIDIA AI Enterprise software and enterprise support.</p></div><div><ShieldCheck/><strong>Customer or integrator</strong><p>Architecture, identity, network, model and software approvals, backups, monitoring, application support, compliance evidence, change control, and operational runbooks.</p></div></section>
-  <section className="commercial-checklist"><div><p className="eyebrow">PUT THESE ON THE QUOTE</p><h3>Questions that prevent surprise cost after purchase</h3></div><ul><li>Exact hardware configuration, delivery status, warranty term, response time, and repair location</li><li>Included HP software and whether updates or support have a term</li><li>Every NVIDIA entitlement: product name, quantity, start date, term, renewal, and support level</li><li>Third-party model, application, container registry, management, and security-tool licenses</li><li>Rack accessories, remote management, cables, networking, storage, backup, and power work</li><li>Deployment, integration, training, workload validation, and ongoing managed-service responsibilities</li></ul></section>
-  <div className="answer-table"><div><strong>Is NVIDIA AI Enterprise mandatory?</strong><p>Not for every local development workflow. It is required when the customer chooses its enterprise software assets or wants the associated enterprise support. Confirm the intended NIM and production use against current NVIDIA terms.</p></div><div><strong>Is there a hidden subscription?</strong><p>There should not be. Require all recurring items and renewal dates on the proposal. Do not describe the entire NVIDIA software ecosystem as permanently included or free.</p></div><div><strong>Who handles a post-sales issue?</strong><p>Route hardware and OEM-image issues through the purchased HP support path; route entitled NVIDIA enterprise software through NVIDIA support; route customer applications and integrations to their named owner.</p></div></div>
-  <SourceLinks links={[["HP Z AI Stations","https://www.hp.com/us-en/workstations/ai-stations.html"],["NVIDIA AI Enterprise—DGX Spark","https://docs.nvidia.com/dgx/dgx-spark/nvaie-quickstart.html"],["NVIDIA support boundaries","https://docs.nvidia.com/dgx/dgx-spark/support.html"]]}/>
-</div>; }
+function Prove(){return <Stage title="Prove Fury before production" eyebrow="Approval gate 07" answer="Treat a Fury remote sandbox as a governed technical trial—not the same thing as Priority Access or pre-order. Publish the offer only after HP approves its operating terms.">
+  <div className="ev-trial"><div><FlaskConical/><span>Pilot required</span><h3>Prove your workload on ZGX Fury before finalizing the architecture.</h3><p>Discovery → mutual success plan → security approval → workload deployment → benchmark → executive readout and TCO → production quote</p><button type="button" disabled>Sandbox program pending approval</button></div><ul>{["Eligible customers and regions","Duration, lead time, dedicated/shared","Remote access and IP allowlisting","Permitted data and egress rules","Model-license responsibility","Retention and wipe attestation","Support hours and limitations","Success criteria and benchmark","Cost and approval process"].map(item=><li key={item}><CircleAlert/>{item}</li>)}</ul></div>
+  <Callout title="Promotions belong in a governed feed" text="Do not hard-code store offers. A future card should be geo-aware, dated, SKU-specific, and show eligibility, expiry, exclusions, last verification, and an enterprise-quote CTA."/>
+  <Sources links={[["Fury Priority Access","https://www.hp.com/us-en/workstations/ai-stations.html"]]}/>
+</Stage>}
+
+function Stage({title,eyebrow,answer,children}:{title:string;eyebrow:string;answer:string;children:React.ReactNode}){return <section className="ev-section"><header><p>{eyebrow}</p><h2>{title}</h2></header><div className="ev-ae"><span>30-second answer</span><p>{answer}</p></div>{children}</section>}
+function Status({type}:{type:Evidence}){return <span className={`ev-status ${type}`}>{statusLabels[type]}</span>}
+function Product({name,icon,status,statusType,role,specs,gate}:{name:string;icon:"nano"|"fury";status:string;statusType:Evidence;role:string;specs:string[];gate:string}){return <article className={`ev-product ${icon}`}><div className="ev-product-title"><span>{icon==="nano"?<Cpu/>:<Server/>}<b>{name}</b></span><Status type={statusType}/></div><p>{status}</p><h3>{role}</h3><ul>{specs.map(item=><li key={item}><Check/>{item}</li>)}</ul><div><small>Key buying gate</small><strong>{gate}</strong></div></article>}
+function ProductDetails({nano,fury}:{nano:{evidence:Evidence;status:string;items:string[]};fury:{evidence:Evidence;status:string;items:string[]}}){return <div className="ev-details"><details open><summary><span><Cpu/>ZGX Nano</span><Status type={nano.evidence}/><ChevronDown/></summary><div><b>{nano.status}</b><ul>{nano.items.map(item=><li key={item}><Check/>{item}</li>)}</ul></div></details><details><summary><span><Server/>ZGX Fury</span><Status type={fury.evidence}/><ChevronDown/></summary><div><b>{fury.status}</b><ul>{fury.items.map(item=><li key={item}><Check/>{item}</li>)}</ul></div></details></div>}
+function Mini({icon,title,text}:{icon:React.ReactNode;title:string;text:string}){return <article>{icon}<h3>{title}</h3><p>{text}</p></article>}
+function Callout({title,text}:{title:string;text:string}){return <aside className="ev-callout"><CircleAlert/><div><strong>{title}</strong><p>{text}</p></div></aside>}
+function Alert({title,text,href}:{title:string;text:string;href:string}){return <aside className="ev-alert"><ShieldCheck/><div><span>Live bulletin</span><strong>{title}</strong><p>{text}</p></div><a href={href} target="_blank" rel="noreferrer">Open bulletin<ExternalLink/></a></aside>}
+function Sources({links}:{links:[string,string][]}){return <div className="ev-sources"><span>Official sources</span>{links.map(([label,url])=><a key={url} href={url} target="_blank" rel="noreferrer">{label}<ExternalLink/></a>)}</div>}
+function GuideChat({open,setOpen,navigate}:{open:boolean;setOpen:(value:boolean)=>void;navigate:(stage:Stage)=>void}){const prompts:[string,Stage][]=[["Which system fits?","choose"],["Can data stay local?","secure"],["Will our software run?","compatible"],["What must be on the quote?","support"]];return <div className="ev-chat">{open&&<section role="dialog" aria-label="ZGX Guide assistant"><header><span><Bot/></span><div><strong>ZGX Guide</strong><small><i/> Guided preview</small></div><button onClick={()=>setOpen(false)} aria-label="Close assistant"><X/></button></header><div><p>What does your customer need to approve?</p>{prompts.map(([label,target])=><button key={label} onClick={()=>navigate(target)}>{label}<ArrowRight/></button>)}<aside><Sparkles/><span><strong>Knowledge connection comes next.</strong>This preview only navigates approved guide content.</span></aside></div><footer><input disabled placeholder="Ask about enterprise deployment…" aria-label="Ask ZGX Guide"/><button disabled aria-label="Send"><Send/></button></footer></section>}<button className="ev-chat-launch" onClick={()=>setOpen(!open)} aria-label={open?"Close ZGX Guide":"Open ZGX Guide"}>{open?<X/>:<MessageCircle/>}<span>{open?"Close":"Ask ZGX Guide"}</span></button></div>}

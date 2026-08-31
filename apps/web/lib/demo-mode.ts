@@ -17,7 +17,7 @@ export function productionModeUrl(value: string | null | undefined): string | nu
   try {
     const url = new URL(value);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    url.searchParams.set("demo", "false");
+    url.searchParams.delete("demo");
     return url.toString();
   } catch {
     return null;

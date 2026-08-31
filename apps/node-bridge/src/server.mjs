@@ -15,7 +15,7 @@ export function allowedTerminalRead(path){return path==="/terminal/hermes"||/^\/
 export function allowedTerminalMutation(path){return /^\/api\/terminals\/hermes\/(?:sessions|input|resize|close)$/.test(path)}
 export function externalize(path,value){
  const residencyStates=new Set(["resident","warm-shared","unmapped","unknown"]), retentionStates=new Set(["retained","releasing","released","unknown"]);
- const clean=item=>({...item,browser_url:typeof item.external_browser_url==="string"&&item.external_browser_url.startsWith("https://")?item.external_browser_url:typeof item.browser_url==="string"&&item.browser_url.startsWith("https://")?item.browser_url:null,model_residency:residencyStates.has(item.model_residency)?item.model_residency:undefined,idle_retention:retentionStates.has(item.idle_retention)?item.idle_retention:undefined});
+ const clean=item=>{const external=typeof item.external_browser_url==="string"&&item.external_browser_url.startsWith("https://")?item.external_browser_url:typeof item.browser_url==="string"&&item.browser_url.startsWith("https://")?item.browser_url:null;const relativeOpen=typeof item.open_url==="string"&&item.open_url.startsWith("/apps/")?item.open_url:null;return {...item,browser_url:external,open_url:relativeOpen??external,model_residency:residencyStates.has(item.model_residency)?item.model_residency:undefined,idle_retention:retentionStates.has(item.idle_retention)?item.idle_retention:undefined}};
  if(path==="/api/workloads"&&Array.isArray(value))return value.map(clean);
  if(/^\/api\/transitions\//.test(path)&&value&&typeof value==="object")return clean(value);
  return value;

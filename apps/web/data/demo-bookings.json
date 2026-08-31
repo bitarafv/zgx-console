@@ -109,7 +109,7 @@
       "timezone": "America/New_York",
       "status": "approved",
       "createdAt": "2026-08-29T10:30:44.836Z",
-      "updatedAt": "2026-08-29T10:31:11.177Z",
+      "updatedAt": "2026-08-30T06:55:12.292Z",
       "approvalEmailStatus": "sent",
       "approvalEmailSentAt": "2026-08-29T10:31:11.177Z",
       "approvalMessageId": "<zgx-106687d8-20f0-4f4f-9b23-0e2d6dc630b3@bncvc.com>",
@@ -125,7 +125,9 @@
           "createdAt": "2026-08-29T10:31:11.177Z",
           "readAt": "2026-08-29T10:31:11.177Z"
         }
-      ]
+      ],
+      "launchedAt": "2026-08-30T06:10:11.473Z",
+      "stoppedAt": "2026-08-30T06:55:12.292Z"
     },
     {
       "id": "8140d208-f816-40a9-84a9-0fe4162e55ed",
@@ -192,6 +194,6 @@
   "mailbox": {
     "uidValidity": "1787921713",
     "lastUid": 1,
-    "lastCheckedAt": "2026-08-30T03:41:41.166Z"
+    "lastCheckedAt": "2026-08-31T01:41:37.879Z"
   }
 }

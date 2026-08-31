@@ -3,8 +3,8 @@ import { allowedSivaMethod, canonicalAppMountUrl, rewriteSivaHtml, sivaPath } fr
 
 describe("Siva admin proxy", () => {
   it("canonicalizes only exact application mounts and preserves queries", () => {
-    expect(canonicalAppMountUrl("https://console.test/admin/siva/apps/aml-fraud-agent?demo=false",["apps","aml-fraud-agent"])).toBe("/admin/siva/apps/aml-fraud-agent/?demo=false");
-    expect(canonicalAppMountUrl("https://console.test/admin/siva/apps/aml-fraud-agent/?demo=false",["apps","aml-fraud-agent"])).toBeNull();
+    expect(canonicalAppMountUrl("https://console.test/admin/siva/apps/aml-fraud-agent?tenant=north",["apps","aml-fraud-agent"])).toBe("/admin/siva/apps/aml-fraud-agent/?tenant=north");
+    expect(canonicalAppMountUrl("https://console.test/admin/siva/apps/aml-fraud-agent/?tenant=north",["apps","aml-fraud-agent"])).toBeNull();
     expect(canonicalAppMountUrl("https://console.test/admin/siva/apps/aml-fraud-agent/app.js",["apps","aml-fraud-agent","app.js"])).toBeNull();
     expect(canonicalAppMountUrl("https://console.test/admin/siva/apps/aml-fraud-agent/api/cases",["apps","aml-fraud-agent","api","cases"])).toBeNull();
   });
@@ -48,6 +48,10 @@ describe("Siva admin proxy", () => {
     expect(rewritten).toContain('fetch("/admin/siva/api/policy")');
     expect(rewritten).toContain(`searchParams.set("demo","false")`);
     expect(rewritten).not.toContain('target="_blank" rel="noopener">Open application</a>');
+  });
+  it("rewrites AML launch completion to its dedicated production origin", () => {
+    const rewritten = rewriteSivaHtml('function applicationDestination(x){const raw=x.interactive_terminal?.path||x.open_url||x.browser_url;}');
+    expect(rewritten).toContain('x.target_workload==="aml-fraud-agent"&&x.external_browser_url?x.external_browser_url');
   });
   it("rewrites the Hermes terminal surface under the authenticated proxy", () => {
     const rewritten = rewriteSivaHtml(`<link href="/assets/xterm.css"><script src="/assets/xterm.js"></script><a href="/">Dashboard</a><strong id="filePath">Hermes sandbox</strong><script>filePathLabel.textContent=workspacePath?\`Hermes sandbox / \${workspacePath}\`:'Hermes sandbox';fetch(\`/api/workloads/hermes/files?path=\${path}\`);new EventSource(\`/api/terminals/hermes/events?token=\${token}\`);location.href='/'</script>`);

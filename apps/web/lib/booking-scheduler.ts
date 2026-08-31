@@ -26,10 +26,11 @@ export async function runBookingScheduler() {
       const action = !booking.launchedAt && now >= start - 15 * 60_000 && now < start + 30 * 60_000 ? "launch" : booking.launchedAt && !booking.stoppedAt && now >= start + 30 * 60_000 ? "stop" : null;
       if (!action) continue;
       try {
+        await mutateBookingData(data => { const item = data.bookings.find(value => value.id === booking.id); if (item) { item.lifecycleAction = action === "launch" ? "launching" : "stopping"; item.updatedAt = new Date().toISOString(); } });
         await bookingLifecycle(booking.workloadId, action);
-        await mutateBookingData(data => { const item = data.bookings.find(value => value.id === booking.id); if (item) { if (action === "launch") item.launchedAt = new Date().toISOString(); else item.stoppedAt = new Date().toISOString(); item.lifecycleError = undefined; item.updatedAt = new Date().toISOString(); } });
+        await mutateBookingData(data => { const item = data.bookings.find(value => value.id === booking.id); if (item) { if (action === "launch") item.launchedAt = new Date().toISOString(); else item.stoppedAt = new Date().toISOString(); item.lifecycleAction = undefined; item.lifecycleError = undefined; item.updatedAt = new Date().toISOString(); } });
       } catch (error) {
-        await mutateBookingData(data => { const item = data.bookings.find(value => value.id === booking.id); if (item) { item.lifecycleError = error instanceof Error ? error.message : "Lifecycle action failed"; item.updatedAt = new Date().toISOString(); } });
+        await mutateBookingData(data => { const item = data.bookings.find(value => value.id === booking.id); if (item) { item.lifecycleAction = undefined; item.lifecycleError = error instanceof Error ? error.message : "Lifecycle action failed"; item.updatedAt = new Date().toISOString(); } });
       }
     }
   } finally { running = false; }

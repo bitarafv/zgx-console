@@ -65,6 +65,7 @@ export type DemoBooking = {
   launchedAt?: string;
   stoppedAt?: string;
   lifecycleError?: string;
+  lifecycleAction?: "launching" | "stopping";
   approvalEmailStatus?: BookingEmailStatus;
   approvalEmailSentAt?: string;
   approvalEmailError?: string;

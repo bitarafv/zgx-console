@@ -9,15 +9,20 @@ describe("model-free AML demo", () => {
     expect(dashboard).toContain(`if (item.id === "aml-fraud-agent") return "/demo/aml-fraud-agent"`);
   });
 
-  it("provides the deterministic escalation and review workflow", () => {
-    expect(demo).toContain("No AI model · no node connection · browser-only session");
-    expect(demo).toContain("Stream structuring demo");
-    expect(demo).toContain("STRUCTURING_SUSPECTED");
-    expect(demo).toContain("SAR narrative · deterministic template");
-    expect(demo).toContain("Approve draft");
-    expect(demo).toContain("Mark filed");
-    expect(demo).toContain("Reset");
+  it("mirrors production while intercepting model actions with booking", () => {
+    expect(demo).toContain("INTERACTIVE SANDBOX DEMO");
+    expect(demo).toContain('useState<"control"|"case">("control")');
+    expect(demo.indexOf("Production Control Room")).toBeLessThan(demo.indexOf("Case Study"));
+    expect(demo).toContain("Run Analysis");
+    expect(demo).toContain("AI Risk Assessment");
+    expect(demo).toContain("AI Explanation");
+    expect(demo).toContain("AI Investigation");
+    expect(demo).toContain("Model-based Forensics");
+    expect(demo).toContain("Generate SAR Draft");
+    expect(demo).toContain("Regenerate Narrative");
+    expect(demo).toContain("DemoAccessModal");
+    expect(demo).toContain('workloadId="aml-fraud-agent"');
+    expect(demo).toContain("no inference, model loading, VRAM reservation");
     expect(demo).not.toContain("fetch(");
-    expect(demo).not.toContain("/api/");
   });
 });
