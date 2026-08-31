@@ -3,6 +3,7 @@ import "./globals.css";
 import "./insights.css";
 import "./enterprise-guide.css";
 import "./workload-problem-tooltip.css";
+import "./workload-card-layout.css";
 
 export const metadata: Metadata = {
   title: "ZGX Console",
