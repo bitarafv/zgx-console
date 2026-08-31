@@ -5,6 +5,7 @@ import { CircleHelp } from "lucide-react";
 import { demoModeUrl, productionModeUrl } from "@/lib/demo-mode";
 import { workloadOpenControl } from "@/lib/workload-open";
 import { TokenSavingsMeter } from "./TokenSavingsMeter";
+import { WorkloadProblemTooltip } from "./WorkloadProblemTooltip";
 import { DemoBookingAdmin } from "./DemoBookingAdmin";
 import type { AdminBookingData } from "@/lib/bookings-types";
 import type { AllocatedModelMemory, Resources, Workload } from "@/lib/types";
@@ -231,7 +232,7 @@ export function NodeDashboard({ adminView = false, adminBookingData }: { adminVi
         <div className="workload-content">
           <div className="workload-card-head"><div className="workload-title"><span className={item.active ? "dot active" : "dot"}/><h3>{item.name}</h3></div><div className="industry-tags" aria-label="Industry verticals">{(item.industry_verticals ?? []).map(value => <span className="industry-chip" key={value}>{value}</span>)}</div></div>
           {item.scheduler_activity && <SchedulerActivityNotice state={item.scheduler_activity.state}/>}
-          <p>{item.description}</p>
+          <div className="workload-description"><WorkloadProblemTooltip workloadId={item.id} name={item.name} description={item.description}/><p>{item.description}</p></div>
           <TokenSavingsMeter item={item}/>
           <div className="chips model-tags">{[...item.model_names, ...item.intelligence_services].map(value => <ModelBadge key={value} item={item} value={value}/>)}</div>
           {hermesTelemetry

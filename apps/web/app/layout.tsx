@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./insights.css";
 import "./enterprise-guide.css";
+import "./workload-problem-tooltip.css";
 
 export const metadata: Metadata = {
   title: "ZGX Console",
