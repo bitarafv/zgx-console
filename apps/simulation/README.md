@@ -1,4 +1,4 @@
-# ZGX Demo Display
+# ZGX Experiences
 
 A presentation-ready, configuration-driven showcase of simulated AI software experiences across commercial and public-sector industries. It is designed for customer discovery conversations and does **not** run AI models or send data to external services.
 
@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:60371/simulation](http://localhost:60371/simulation). The integrated four-tab console remains at [http://localhost:60370](http://localhost:60370). Port 3000 is not used by ZGX Console.
 
 ## Commands
 

@@ -5,10 +5,12 @@
   "workspaces": ["apps/web", "apps/simulation", "apps/node-bridge", "packages/contracts"],
   "scripts": {
     "setup": "./zgx setup",
-    "dev": "./zgx dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:nano": "./zgx dev",
     "start": "./zgx start",
     "stop": "./zgx stop",
     "restart": "./zgx restart",
+    "update": "./zgx update",
     "status": "./zgx status",
     "logs": "./zgx logs",
     "lint": "npm --prefix apps/web run lint && npm --prefix apps/simulation run lint && npm --prefix apps/node-bridge run lint",

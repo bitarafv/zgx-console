@@ -1,21 +1,253 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT=$(cd "$(dirname "$0")/.." && pwd); RUN="$ROOT/.run"; LOG="$ROOT/.logs"; ENV_FILE="$ROOT/.env.local"
-mkdir -p "$RUN" "$LOG"; if [[ -f "$ENV_FILE" ]];then set -a;source "$ENV_FILE";set +a;fi
-ZGX_BRIDGE_TOKEN=${ZGX_BRIDGE_TOKEN:-}; ZGX_ADMIN_BRIDGE_SECRET=${ZGX_ADMIN_BRIDGE_SECRET:-}
-WEB_PORT=${ZGX_WEB_PORT:-60370}; SIM_PORT=${ZGX_SIMULATION_PORT:-60371}; BRIDGE_PORT=${ZGX_BRIDGE_PORT:-60372}
-port_busy(){ ss -ltnH "sport = :$1" 2>/dev/null|grep -q .; }
-owned(){ local f="$RUN/$1.pid";[[ -f "$f" ]]||return 1;local p;p=$(<"$f");kill -0 "$p" 2>/dev/null||return 1;local cwd;cwd=$(readlink "/proc/$p/cwd" 2>/dev/null||true);[[ "$cwd" == "$ROOT"* ]]; }
-launch(){ local name=$1 dir=$2;shift 2;if owned "$name";then echo "$name already running";return;fi;local port="";if [[ ${1:-} == port:* ]];then port=${1#*:};shift;if port_busy "$port";then echo "Refusing: port $port is owned by another process" >&2;exit 1;fi;fi;(cd "$dir";nohup setsid "$@" >"$LOG/$name.log" 2>&1&echo $!>"$RUN/$name.pid"); }
-stop_one(){ local name=$1;if ! owned "$name";then rm -f "$RUN/$name.pid";echo "$name not running";return;fi;local p;p=$(<"$RUN/$name.pid");kill -- "-$p";for _ in {1..20};do kill -0 "$p" 2>/dev/null||break;sleep .25;done;if kill -0 "$p" 2>/dev/null;then echo "Refusing to force-kill $name; inspect PID $p" >&2;return 1;fi;rm -f "$RUN/$name.pid";echo "$name stopped"; }
-need_secrets(){ [[ ${#ZGX_BRIDGE_TOKEN} -ge 24 && ${#ZGX_ADMIN_BRIDGE_SECRET} -ge 24 ]]||{ echo "Run ./zgx setup to create local bridge secrets" >&2;exit 1;}; }
-need_builds(){ [[ -d "$ROOT/apps/web/.next"&&-d "$ROOT/apps/simulation/.next" ]]||{ echo "Production builds missing; run ./zgx setup" >&2;exit 1;}; }
-wait_siva(){ for _ in {1..20};do curl -fsS --max-time 2 http://127.0.0.1:18000/api/workloads >/dev/null 2>&1&&return;sleep .5;done;echo "Siva is unavailable on 127.0.0.1:18000; it was not modified" >&2;exit 1; }
-setup(){ command -v node>/dev/null;command -v npm>/dev/null;[[ -f "$ENV_FILE" ]]||cp "$ROOT/.env.example" "$ENV_FILE";if ! grep -q '^ZGX_BRIDGE_TOKEN=.' "$ENV_FILE";then printf '\nZGX_BRIDGE_TOKEN=%s\nZGX_ADMIN_BRIDGE_SECRET=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" >>"$ENV_FILE";fi;npm --prefix "$ROOT/apps/web" ci;npm --prefix "$ROOT/apps/simulation" ci;npm --prefix "$ROOT/apps/web" run build;NEXT_PUBLIC_BASE_PATH=/simulation npm --prefix "$ROOT/apps/simulation" run build;npm --prefix "$ROOT/apps/node-bridge" test;echo "Setup complete."; }
-public_start(){ need_builds;if systemctl --user cat zgx-console.service >/dev/null 2>&1;then systemctl --user start zgx-console.service;return;fi;launch simulation "$ROOT" "port:$SIM_PORT" env NEXT_PUBLIC_BASE_PATH=/simulation npm --prefix apps/simulation start -- --hostname 127.0.0.1 --port "$SIM_PORT";launch web "$ROOT" "port:$WEB_PORT" env ZGX_RUNTIME_MODE=cloud ZGX_LOCAL_ADMIN=true ZGX_NODE_BRIDGE_ORIGIN="http://127.0.0.1:$BRIDGE_PORT" ZGX_BRIDGE_TOKEN="$ZGX_BRIDGE_TOKEN" ZGX_ADMIN_BRIDGE_SECRET="$ZGX_ADMIN_BRIDGE_SECRET" ZGX_ADMIN_EMAILS="${ZGX_ADMIN_EMAILS:-bitarafv@gmail.com}" ZGX_SIMULATION_ORIGIN="http://127.0.0.1:$SIM_PORT" NEXT_PUBLIC_ZGX_SIMULATION_URL=/simulation npm --prefix apps/web start -- --hostname 127.0.0.1 --port "$WEB_PORT"; }
-start(){ need_secrets;public_start;wait_siva;launch bridge "$ROOT" "port:$BRIDGE_PORT" env ZGX_BRIDGE_HOST=127.0.0.1 ZGX_BRIDGE_PORT="$BRIDGE_PORT" ZGX_NODE_ORIGIN=http://127.0.0.1:18000 ZGX_BRIDGE_TOKEN="$ZGX_BRIDGE_TOKEN" ZGX_ADMIN_BRIDGE_SECRET="$ZGX_ADMIN_BRIDGE_SECRET" npm --prefix apps/node-bridge start;sleep 2;"$0" status; }
-stop(){ stop_one bridge||true;echo "Public ZGX Console remains online in static-node mode. Siva and workloads were left untouched."; }
-public_stop(){ if systemctl --user cat zgx-console.service >/dev/null 2>&1;then systemctl --user stop zgx-console.service;else stop_one web||true;stop_one simulation||true;fi; }
-status(){ for entry in "web:$WEB_PORT" "simulation:$SIM_PORT" "bridge:$BRIDGE_PORT";do name=${entry%%:*};port=${entry##*:};if owned "$name";then echo "$name: running (PID $(<"$RUN/$name.pid"))";elif port_busy "$port";then echo "$name: running (managed service)";else echo "$name: stopped";fi;done;if systemctl is-active --quiet cloudflared.service 2>/dev/null;then echo "tunnel: active (system service)";else echo "tunnel: inactive";fi;if curl -fsS --max-time 2 http://127.0.0.1:18000/api/workloads >/dev/null 2>&1;then echo "siva: reachable (unmanaged)";else echo "siva: unavailable";fi; }
-dev(){ need_secrets;trap 'kill 0' EXIT INT TERM;(cd "$ROOT/apps/node-bridge";ZGX_BRIDGE_PORT="$BRIDGE_PORT" ZGX_BRIDGE_TOKEN="$ZGX_BRIDGE_TOKEN" ZGX_ADMIN_BRIDGE_SECRET="$ZGX_ADMIN_BRIDGE_SECRET" npm start)&(cd "$ROOT/apps/simulation";NEXT_PUBLIC_BASE_PATH=/simulation npm run dev -- --hostname 127.0.0.1 --port "$SIM_PORT")&(cd "$ROOT/apps/web";ZGX_RUNTIME_MODE=node ZGX_NODE_BRIDGE_ORIGIN="http://127.0.0.1:$BRIDGE_PORT" ZGX_BRIDGE_TOKEN="$ZGX_BRIDGE_TOKEN" ZGX_ADMIN_BRIDGE_SECRET="$ZGX_ADMIN_BRIDGE_SECRET" npm run dev -- --hostname 127.0.0.1 --port "$WEB_PORT")&wait; }
-case ${1:-status} in setup)setup;;public-start)need_secrets;public_start;;public-stop)public_stop;;start)start;;stop)stop;;restart)stop;start;;shutdown)stop;public_stop;;status)status;;logs)tail -n 100 -F "$LOG"/*.log;;dev)dev;;*)echo "Usage: ./zgx {setup|public-start|start|stop|restart|status|logs|dev|shutdown}" >&2;exit 2;;esac
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ENV_FILE="$ROOT/.env.local"
+CONSOLE_SERVICE="zgx-console.service"
+BRIDGE_SERVICE="zgx-node-bridge.service"
+USER_UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+WEB_PORT=${ZGX_WEB_PORT:-60370}
+SIM_PORT=${ZGX_SIMULATION_PORT:-60371}
+BRIDGE_PORT=${ZGX_BRIDGE_PORT:-60372}
+UNITS_CHANGED=false
+
+load_env(){
+  if [[ -f "$ENV_FILE" ]]; then
+    set -a
+    source "$ENV_FILE"
+    set +a
+  fi
+  WEB_PORT=${ZGX_WEB_PORT:-60370}
+  SIM_PORT=${ZGX_SIMULATION_PORT:-60371}
+  BRIDGE_PORT=${ZGX_BRIDGE_PORT:-60372}
+  ZGX_BRIDGE_TOKEN=${ZGX_BRIDGE_TOKEN:-}
+  ZGX_ADMIN_BRIDGE_SECRET=${ZGX_ADMIN_BRIDGE_SECRET:-}
+}
+
+service_exists(){ systemctl --user cat "$1" >/dev/null 2>&1; }
+service_active(){ systemctl --user is-active --quiet "$1"; }
+port_busy(){ ss -ltnH "sport = :$1" 2>/dev/null | grep -q .; }
+
+need_secrets(){
+  [[ ${#ZGX_BRIDGE_TOKEN} -ge 24 && ${#ZGX_ADMIN_BRIDGE_SECRET} -ge 24 ]] || {
+    echo "Run ./zgx setup to create local bridge secrets." >&2
+    exit 1
+  }
+}
+
+need_builds(){
+  [[ -d "$ROOT/apps/web/.next" && -d "$ROOT/apps/simulation/.next" ]] || {
+    echo "Production builds are missing. Run ./zgx setup." >&2
+    exit 1
+  }
+}
+
+install_units(){
+  mkdir -p "$USER_UNIT_DIR"
+  UNITS_CHANGED=false
+  for service in "$CONSOLE_SERVICE" "$BRIDGE_SERVICE"; do
+    if [[ ! -f "$USER_UNIT_DIR/$service" ]] || ! cmp -s "$ROOT/deploy/systemd/$service" "$USER_UNIT_DIR/$service"; then UNITS_CHANGED=true; fi
+    install -m 0644 "$ROOT/deploy/systemd/$service" "$USER_UNIT_DIR/$service"
+  done
+  systemctl --user daemon-reload
+  systemctl --user enable "$CONSOLE_SERVICE" >/dev/null
+}
+
+wait_siva(){
+  for _ in {1..20}; do
+    if curl -fsS --max-time 2 http://127.0.0.1:18000/api/workloads >/dev/null 2>&1; then return; fi
+    sleep .5
+  done
+  if port_busy 18000; then
+    echo "Siva is listening on 127.0.0.1:18000, but its workload API timed out; console services will continue without modifying it." >&2
+  else
+    echo "Siva is not listening on 127.0.0.1:18000; console services will continue without modifying it." >&2
+  fi
+  return 1
+}
+
+wait_bridge(){
+  for _ in {1..20}; do
+    if curl -fsS --max-time 2 http://127.0.0.1:"$BRIDGE_PORT"/health >/dev/null 2>&1; then return; fi
+    sleep .25
+  done
+  echo "Bridge did not become healthy on 127.0.0.1:$BRIDGE_PORT." >&2
+  systemctl --user status "$BRIDGE_SERVICE" --no-pager >&2 || true
+  exit 1
+}
+
+validate(){
+  npm --prefix "$ROOT" run lint
+  npm --prefix "$ROOT" run typecheck
+  npm --prefix "$ROOT" test
+}
+
+build_all(){
+  npm --prefix "$ROOT/apps/web" run build &&
+  NEXT_PUBLIC_BASE_PATH=/simulation npm --prefix "$ROOT/apps/simulation" run build &&
+  npm --prefix "$ROOT/apps/node-bridge" run build
+}
+
+setup(){
+  command -v node >/dev/null
+  command -v npm >/dev/null
+  command -v systemctl >/dev/null
+  [[ -f "$ENV_FILE" ]] || cp "$ROOT/.env.example" "$ENV_FILE"
+  if ! grep -q '^ZGX_BRIDGE_TOKEN=.' "$ENV_FILE"; then
+    printf '\nZGX_BRIDGE_TOKEN=%s\nZGX_ADMIN_BRIDGE_SECRET=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" >>"$ENV_FILE"
+  fi
+  load_env
+  npm --prefix "$ROOT/apps/web" ci
+  npm --prefix "$ROOT/apps/simulation" ci
+  validate
+  build_all
+  install_units
+  echo "Setup complete. Run ./zgx start to enable live Nano telemetry."
+}
+
+start(){
+  load_env
+  need_secrets
+  need_builds
+  install_units
+  if [[ "$UNITS_CHANGED" == true ]] && service_active "$CONSOLE_SERVICE"; then
+    systemctl --user restart "$CONSOLE_SERVICE"
+  else
+    systemctl --user start "$CONSOLE_SERVICE"
+  fi
+  wait_siva || true
+  systemctl --user enable --now "$BRIDGE_SERVICE" >/dev/null
+  wait_bridge
+  status
+}
+
+stop(){
+  load_env
+  if service_exists "$BRIDGE_SERVICE"; then
+    systemctl --user disable --now "$BRIDGE_SERVICE" >/dev/null
+  fi
+  echo "Live Nano telemetry stopped. The public console remains online; Siva and workloads were untouched."
+  status
+}
+
+restart(){
+  load_env
+  need_secrets
+  need_builds
+  install_units
+  wait_siva || true
+  systemctl --user restart "$CONSOLE_SERVICE"
+  systemctl --user enable "$BRIDGE_SERVICE" >/dev/null
+  systemctl --user restart "$BRIDGE_SERVICE"
+  wait_bridge
+  status
+}
+
+shutdown(){
+  load_env
+  if service_exists "$BRIDGE_SERVICE"; then systemctl --user disable --now "$BRIDGE_SERVICE" >/dev/null; fi
+  if service_exists "$CONSOLE_SERVICE"; then systemctl --user stop "$CONSOLE_SERVICE"; fi
+  echo "ZGX Console stopped. Siva and workloads were untouched."
+  status
+}
+
+update(){
+  load_env
+  need_secrets
+  local bridge_was_active=false backup_root
+  if service_active "$BRIDGE_SERVICE" || port_busy "$BRIDGE_PORT"; then bridge_was_active=true; fi
+  validate
+  backup_root=$(mktemp -d)
+  cp -a "$ROOT/apps/web/.next" "$backup_root/web-next"
+  cp -a "$ROOT/apps/simulation/.next" "$backup_root/simulation-next"
+  systemctl --user stop "$CONSOLE_SERVICE"
+  if ! build_all; then
+    rm -rf "$ROOT/apps/web/.next" "$ROOT/apps/simulation/.next"
+    mv "$backup_root/web-next" "$ROOT/apps/web/.next"
+    mv "$backup_root/simulation-next" "$ROOT/apps/simulation/.next"
+    rmdir "$backup_root"
+    systemctl --user start "$CONSOLE_SERVICE"
+    echo "Build failed; the previous console build was restored." >&2
+    return 1
+  fi
+  rm -rf "$backup_root"
+  install_units
+  systemctl --user restart "$CONSOLE_SERVICE"
+  if [[ "$bridge_was_active" == true ]]; then
+    wait_siva || true
+    systemctl --user enable "$BRIDGE_SERVICE" >/dev/null
+    systemctl --user restart "$BRIDGE_SERVICE"
+    wait_bridge
+  else
+    systemctl --user disable --now "$BRIDGE_SERVICE" >/dev/null 2>&1 || true
+  fi
+  echo "ZGX Console updated successfully."
+  status
+}
+
+status_line(){
+  local label=$1 service=$2 port=$3
+  if service_active "$service"; then
+    echo "$label: running (managed by $service, port $port)"
+  elif port_busy "$port"; then
+    echo "$label: conflict — port $port is owned outside $service"
+  else
+    echo "$label: stopped"
+  fi
+}
+
+status(){
+  load_env
+  status_line "console web" "$CONSOLE_SERVICE" "$WEB_PORT"
+  if service_active "$CONSOLE_SERVICE" && port_busy "$SIM_PORT"; then
+    echo "simulation: running (managed by $CONSOLE_SERVICE, port $SIM_PORT)"
+  elif port_busy "$SIM_PORT"; then
+    echo "simulation: conflict — port $SIM_PORT is owned outside $CONSOLE_SERVICE"
+  else
+    echo "simulation: stopped"
+  fi
+  status_line "live bridge" "$BRIDGE_SERVICE" "$BRIDGE_PORT"
+  if systemctl is-active --quiet cloudflared.service 2>/dev/null; then echo "tunnel: active (system service)"; else echo "tunnel: inactive"; fi
+  if curl -fsS --max-time 2 http://127.0.0.1:18000/api/workloads >/dev/null 2>&1; then echo "siva: reachable (unmanaged)"; elif port_busy 18000; then echo "siva: API timed out"; else echo "siva: not listening"; fi
+  echo "local: http://localhost:$WEB_PORT"
+  echo "public: https://${ZGX_PUBLIC_HOSTNAME:-zgxconsole.bncvc.com}"
+}
+
+logs(){
+  if service_exists "$CONSOLE_SERVICE" || service_exists "$BRIDGE_SERVICE"; then
+    journalctl --user -u "$CONSOLE_SERVICE" -u "$BRIDGE_SERVICE" -n 100 -f
+  else
+    echo "ZGX services are not installed. Run ./zgx setup." >&2
+    exit 1
+  fi
+}
+
+dev(){
+  load_env
+  need_secrets
+  for port in "$WEB_PORT" "$SIM_PORT" "$BRIDGE_PORT"; do
+    if port_busy "$port"; then
+      echo "Development mode cannot start because port $port is in use. Run ./zgx shutdown first." >&2
+      exit 1
+    fi
+  done
+  trap 'kill 0' EXIT INT TERM
+  (cd "$ROOT/apps/node-bridge"; ZGX_BRIDGE_PORT="$BRIDGE_PORT" ZGX_BRIDGE_TOKEN="$ZGX_BRIDGE_TOKEN" ZGX_ADMIN_BRIDGE_SECRET="$ZGX_ADMIN_BRIDGE_SECRET" npm start) &
+  (cd "$ROOT/apps/simulation"; NEXT_PUBLIC_BASE_PATH=/simulation npm run dev -- --hostname 127.0.0.1 --port "$SIM_PORT") &
+  (cd "$ROOT/apps/web"; ZGX_RUNTIME_MODE=node ZGX_NODE_BRIDGE_ORIGIN="http://127.0.0.1:$BRIDGE_PORT" ZGX_BRIDGE_TOKEN="$ZGX_BRIDGE_TOKEN" ZGX_ADMIN_BRIDGE_SECRET="$ZGX_ADMIN_BRIDGE_SECRET" npm run dev -- --hostname 127.0.0.1 --port "$WEB_PORT") &
+  wait
+}
+
+load_env
+case ${1:-status} in
+  setup) setup ;;
+  start|public-start) start ;;
+  stop) stop ;;
+  restart) restart ;;
+  update) update ;;
+  shutdown|public-stop) shutdown ;;
+  status) status ;;
+  logs) logs ;;
+  dev) dev ;;
+  *) echo "Usage: ./zgx {setup|start|stop|restart|update|status|logs|dev|shutdown}" >&2; exit 2 ;;
+esac

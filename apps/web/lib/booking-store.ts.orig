@@ -1,0 +1,18 @@
+import "server-only";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
+import type { BookingData, DemoBooking } from "./bookings-types";
+export { adminSlots, availableSlots, findWindow, newWindow, scheduleOccurrences, updateWindow, validWindow } from "./booking-schedule";
+
+const EMPTY: BookingData = { version: 1, availability: [], blackouts: [], bookings: [], holds: [] };
+const filePath = () => process.env.ZGX_BOOKING_DATA_PATH ?? path.join(process.cwd(), "data", "demo-bookings.json");
+let queue = Promise.resolve();
+export async function readBookingData(): Promise<BookingData> { try { const value = JSON.parse(await readFile(filePath(), "utf8")) as BookingData; return value.version === 1 ? { ...value, holds: Array.isArray(value.holds) ? value.holds : [] } : structuredClone(EMPTY); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return structuredClone(EMPTY); throw error; } }
+export function mutateBookingData<T>(mutation: (data: BookingData) => T | Promise<T>): Promise<T> { const work = queue.then(async () => { const data = await readBookingData(); const result = await mutation(data); const target = filePath(); await mkdir(path.dirname(target), { recursive: true }); const temporary = `${target}.${process.pid}.tmp`; await writeFile(temporary, JSON.stringify(data, null, 2), { mode: 0o600 }); await rename(temporary, target); return result; }); queue = work.then(() => undefined, () => undefined); return work; }
+export function normalizeEmail(value: unknown) { const email = typeof value === "string" ? value.trim().toLowerCase() : ""; return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254 ? email : null; }
+export function normalizeName(value: unknown) {
+  const name = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+  return name.length >= 2 && name.length <= 100 && !/[\u0000-\u001f\u007f]/.test(name) ? name : null;
+}
+
+export function publicBooking(item: DemoBooking) { return { id: item.id, start: item.start, end: item.end, blockedUntil: item.blockedUntil, status: item.status }; }

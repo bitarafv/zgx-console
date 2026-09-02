@@ -1,0 +1,21 @@
+/* Final workload-card composition layer. Keeps telemetry in normal flow and overrides legacy fixed-height rules. */
+.workloads{align-items:start;gap:16px}
+.workloads article{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:24px;min-height:0;padding:24px;overflow:visible}
+.workload-content{display:flex;min-width:0;padding-bottom:0!important;overflow:visible;flex-direction:column}
+.workload-card-head{margin-bottom:12px}
+.workload-title{gap:1px}.workload-title h3{line-height:1.25}
+.workload-description{margin-bottom:16px}.workload-description>p{margin:0!important;line-height:1.55}
+.model-tags{margin-top:14px}.model-tags:empty{display:none}
+.workload-telemetry{margin-top:16px}
+.workload-actions{align-self:end;justify-content:flex-end;max-width:260px;padding-left:4px}
+.workload-has-memory .workload-content{padding-bottom:0!important}
+.workload-memory{position:static!important;inset:auto!important;width:100%;height:auto!important;min-height:96px;margin-top:16px!important;padding:15px 16px!important;overflow:visible}
+.workload-memory>div:first-child{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0}
+.workload-memory .metric-label{min-width:0;flex-wrap:wrap;line-height:1.3}
+.workload-memory .metric-label>span:first-child{min-width:0;overflow-wrap:anywhere}
+.workload-memory strong{min-width:max-content;text-align:right;white-space:nowrap}
+.workload-memory .meter{width:100%;margin-top:13px}
+.workload-memory small{max-width:100%;margin-top:9px;line-height:1.4;overflow-wrap:anywhere}
+.model-runtime{margin-top:16px}
+@media(max-width:760px){.workloads article{grid-template-columns:1fr;gap:20px;padding:20px}.workload-actions{width:100%;max-width:none;padding-left:0}.workload-actions>*{flex:1}.workload-memory{min-height:0}}
+@media(max-width:420px){.workload-memory>div:first-child{grid-template-columns:1fr;gap:7px}.workload-memory strong{text-align:left}.workload-actions{display:grid;grid-template-columns:1fr}.workload-actions>*{width:100%}}
